@@ -1,8 +1,18 @@
 /**
  * Utility functions for pi-vertex extension
+ *
+ * Message conversion aligns with pi-mono's google-shared.ts to ensure consistent
+ * handling of thinking blocks, tool calls, tool results, and thought signatures.
  */
 
-import type { Message, MessageContent, TextContent, ToolCall, AssistantMessage } from "./types.js";
+import type {
+  AssistantMessage,
+  Message,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+  ToolResultMessage,
+} from "./types.js";
 
 /**
  * Sanitize text by removing invalid surrogate pairs
@@ -11,12 +21,53 @@ export function sanitizeText(text: string): string {
   return text.replace(/[\uD800-\uDFFF]/g, "\uFFFD");
 }
 
+// --- Thought signature helpers (matching pi-mono google-shared.ts) ---
+
+const base64SignaturePattern = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function isValidThoughtSignature(signature: string | undefined): boolean {
+  if (!signature) return false;
+  if (signature.length % 4 !== 0) return false;
+  return base64SignaturePattern.test(signature);
+}
+
+function resolveThoughtSignature(
+  isSameProviderAndModel: boolean,
+  signature: string | undefined,
+): string | undefined {
+  return isSameProviderAndModel && isValidThoughtSignature(signature) ? signature : undefined;
+}
+
 /**
- * Convert messages to Gemini format
+ * Preserve the last non-empty thought signature during streaming.
+ * Some backends only send the signature on the first delta.
  */
-export function convertToGeminiMessages(messages: Message[]): any[] {
+export function retainThoughtSignature(
+  existing: string | undefined,
+  incoming: string | undefined,
+): string | undefined {
+  if (typeof incoming === "string" && incoming.length > 0) return incoming;
+  return existing;
+}
+
+/**
+ * Whether a model requires explicit tool call IDs in functionCall parts.
+ * Claude and GPT-OSS models on Vertex require them; native Gemini models don't.
+ */
+function requiresToolCallId(modelId: string): boolean {
+  return modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
+}
+
+/**
+ * Convert messages to Gemini format.
+ *
+ * Handles the full pi-ai Message union: UserMessage, AssistantMessage (with
+ * TextContent, ThinkingContent, ToolCall blocks), and ToolResultMessage.
+ */
+export function convertToGeminiMessages(messages: Message[], modelId: string): any[] {
   const result: any[] = [];
-  
+  const isGemini3 = modelId.startsWith("gemini-3");
+
   for (const msg of messages) {
     if (msg.role === "user") {
       if (typeof msg.content === "string") {
@@ -39,74 +90,126 @@ export function convertToGeminiMessages(messages: Message[]): any[] {
             };
           }
         });
-        result.push({ role: "user", parts });
+        if (parts.length > 0) {
+          result.push({ role: "user", parts });
+        }
       }
     } else if (msg.role === "assistant") {
-      // Gemini doesn't have a separate assistant role in the same way
-      // We'll handle this in the conversation history
-      if (typeof msg.content === "string") {
-        if (msg.content.trim()) {
-          result.push({
-            role: "model",
-            parts: [{ text: sanitizeText(msg.content) }],
-          });
-        }
-      }
-    }
-  }
-  
-  return result;
-}
+      const assistantMsg = msg as AssistantMessage;
 
-/**
- * Convert messages to OpenAI-compatible format (for Claude and MaaS)
- */
-export function convertToOpenAIMessages(messages: Message[]): any[] {
-  const result: any[] = [];
-  
-  for (const msg of messages) {
-    if (msg.role === "user") {
-      if (typeof msg.content === "string") {
-        if (msg.content.trim()) {
-          result.push({
-            role: "user",
-            content: sanitizeText(msg.content),
+      // Skip errored/aborted messages — they're incomplete turns
+      if (assistantMsg.stopReason === "error" || assistantMsg.stopReason === "aborted") {
+        continue;
+      }
+
+      const isSameProviderAndModel =
+        assistantMsg.provider === "vertex" && assistantMsg.model === modelId;
+      const parts: any[] = [];
+
+      for (const block of assistantMsg.content) {
+        if (block.type === "text") {
+          const textBlock = block as TextContent;
+          if (!textBlock.text || textBlock.text.trim() === "") continue;
+          const thoughtSig = resolveThoughtSignature(isSameProviderAndModel, textBlock.textSignature);
+          parts.push({
+            text: sanitizeText(textBlock.text),
+            ...(thoughtSig && { thoughtSignature: thoughtSig }),
           });
-        }
-      } else {
-        const content = msg.content.map((item) => {
-          if (item.type === "text") {
-            return { type: "text", text: sanitizeText(item.text) };
+        } else if (block.type === "thinking") {
+          const thinkingBlock = block as ThinkingContent;
+          // Skip redacted thinking — only the signature matters, handled by other blocks
+          if (thinkingBlock.redacted) continue;
+          if (!thinkingBlock.thinking || thinkingBlock.thinking.trim() === "") continue;
+
+          if (isSameProviderAndModel) {
+            const thoughtSig = resolveThoughtSignature(true, thinkingBlock.thinkingSignature);
+            parts.push({
+              thought: true,
+              text: sanitizeText(thinkingBlock.thinking),
+              ...(thoughtSig && { thoughtSignature: thoughtSig }),
+            });
           } else {
-            return {
-              type: "image_url",
-              image_url: {
-                url: `data:${item.mimeType};base64,${item.data}`,
+            // Cross-provider: convert thinking to plain text (no tags to avoid model mimicry)
+            parts.push({ text: sanitizeText(thinkingBlock.thinking) });
+          }
+        } else if (block.type === "toolCall") {
+          const toolCallBlock = block as ToolCall;
+          const thoughtSig = resolveThoughtSignature(isSameProviderAndModel, toolCallBlock.thoughtSignature);
+
+          if (isGemini3 && !thoughtSig) {
+            // Gemini 3 requires thought signatures on function calls from the same session.
+            // Unsigned tool calls from other providers are converted to text to avoid
+            // API validation errors (matches pi-mono behavior).
+            const argsStr = JSON.stringify(toolCallBlock.arguments ?? {}, null, 2);
+            parts.push({
+              text: `[Historical context: a different model called tool "${toolCallBlock.name}" with arguments: ${argsStr}. Do not mimic this format - use proper function calling.]`,
+            });
+          } else {
+            const part: any = {
+              functionCall: {
+                name: toolCallBlock.name,
+                args: toolCallBlock.arguments ?? {},
+                ...(requiresToolCallId(modelId) ? { id: toolCallBlock.id } : {}),
               },
             };
+            if (thoughtSig) {
+              part.thoughtSignature = thoughtSig;
+            }
+            parts.push(part);
           }
-        });
-        result.push({ role: "user", content });
-      }
-    } else if (msg.role === "assistant") {
-      if (typeof msg.content === "string") {
-        if (msg.content.trim()) {
-          result.push({
-            role: "assistant",
-            content: sanitizeText(msg.content),
-          });
         }
       }
-    } else if (msg.role === "system") {
-      // System messages handled separately
+
+      if (parts.length > 0) {
+        result.push({ role: "model", parts });
+      }
+    } else if (msg.role === "toolResult") {
+      const toolResultMsg = msg as ToolResultMessage;
+      const textContent = toolResultMsg.content.filter((c) => c.type === "text") as TextContent[];
+      const textResult = textContent.map((c) => c.text).join("\n");
+      const responseValue = textResult || "";
+
+      const includeId = requiresToolCallId(modelId);
+      const functionResponsePart: any = {
+        functionResponse: {
+          name: toolResultMsg.toolName,
+          response: toolResultMsg.isError ? { error: responseValue } : { output: responseValue },
+          ...(includeId ? { id: toolResultMsg.toolCallId } : {}),
+        },
+      };
+
+      // Merge consecutive tool results into a single user turn (required by Gemini API)
+      const lastContent = result[result.length - 1];
+      if (lastContent?.role === "user" && lastContent.parts?.some((p: any) => p.functionResponse)) {
+        lastContent.parts.push(functionResponsePart);
+      } else {
+        result.push({ role: "user", parts: [functionResponsePart] });
+      }
     }
   }
-  
+
   return result;
 }
 
 /**
- * Convert tools to OpenAI format
+ * Convert tools to Gemini format using parametersJsonSchema (full JSON Schema support).
+ * This differs from OpenAI format — Gemini uses functionDeclarations wrapped in an array.
+ */
+export function convertToolsForGemini(tools: any[]): any[] | undefined {
+  if (!tools || tools.length === 0) return undefined;
+  return [
+    {
+      functionDeclarations: tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parametersJsonSchema: tool.parameters,
+      })),
+    },
+  ];
+}
+
+/**
+ * Convert tools to OpenAI format (for Claude and MaaS models)
  */
 export function convertTools(tools: any[]): any[] {
   return tools.map((tool) => ({
@@ -185,7 +288,13 @@ export function mapStopReason(reason: string): "stop" | "length" | "toolUse" | "
 /**
  * Calculate cost based on usage and model cost config
  */
-export function calculateCost(inputCost: number, outputCost: number, cacheReadCost: number, cacheWriteCost: number, usage: AssistantMessage["usage"]): void {
+export function calculateCost(
+  inputCost: number,
+  outputCost: number,
+  cacheReadCost: number,
+  cacheWriteCost: number,
+  usage: AssistantMessage["usage"],
+): void {
   usage.cost.input = (inputCost / 1000000) * usage.input;
   usage.cost.output = (outputCost / 1000000) * usage.output;
   usage.cost.cacheRead = (cacheReadCost / 1000000) * usage.cacheRead;

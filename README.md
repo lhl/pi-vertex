@@ -22,10 +22,11 @@ Set your GCP project and credentials. Vertex AI models (Gemini, Claude, Llama, D
   - **Other MaaS** (20): AI21 Jamba, Mistral, DeepSeek, Qwen, OpenAI GPT-OSS, Kimi, MiniMax, GLM
 
 - **Unified streaming**: Single provider, multiple model families
-- **Full tool calling support**: All models marked with tools support
+- **Full tool calling support**: All models with multi-turn tool use and proper tool result handling
+- **Thinking/reasoning**: Gemini 3 thinking levels, Gemini 2.5 thinking budgets, thought signature preservation
 - **Automatic auth**: Uses Google Application Default Credentials
 - **Region awareness**: Global endpoints where supported, regional where required
-- **Pricing tracking**: Built-in cost per token for all models
+- **Pricing tracking**: Built-in cost per token for all models (including thinking tokens)
 
 ## Installation
 
