@@ -1,14 +1,15 @@
 /**
  * Claude model definitions for Vertex AI
+ * Source: https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-partner-models
  * Pricing: https://cloud.google.com/vertex-ai/generative-ai/pricing#partner-models
- * All prices per 1M tokens (as of Feb 2025)
- * Cache write prices shown are for 5-minute TTL
+ * All prices per 1M tokens (global endpoint, <= 200K input tokens)
+ * Cache write prices are for 5-minute TTL
  */
 
 import type { VertexModelConfig } from "../types.js";
 
 export const CLAUDE_MODELS: VertexModelConfig[] = [
-  // Claude 4.6 series - latest, supports global endpoint
+  // Claude 4.6 series
   {
     id: "claude-opus-4-6",
     name: "Claude Opus 4.6",
@@ -47,7 +48,8 @@ export const CLAUDE_MODELS: VertexModelConfig[] = [
     },
     region: "global",
   },
-  // Claude 4.5 series - supports global endpoint
+
+  // Claude 4.5 series
   {
     id: "claude-opus-4-5",
     name: "Claude Opus 4.5",
@@ -105,7 +107,8 @@ export const CLAUDE_MODELS: VertexModelConfig[] = [
     },
     region: "global",
   },
-  // Claude 4.1 series - regional pricing
+
+  // Claude 4.1 series
   {
     id: "claude-opus-4-1",
     name: "Claude Opus 4.1",
@@ -123,9 +126,10 @@ export const CLAUDE_MODELS: VertexModelConfig[] = [
       cacheRead: 1.50,
       cacheWrite: 18.75,
     },
-    region: "us-east5",
+    region: "global",
   },
-  // Claude 4.0 series - regional pricing
+
+  // Claude 4.0 series
   {
     id: "claude-opus-4",
     name: "Claude Opus 4",
@@ -143,7 +147,7 @@ export const CLAUDE_MODELS: VertexModelConfig[] = [
       cacheRead: 1.50,
       cacheWrite: 18.75,
     },
-    region: "us-east5",
+    region: "global",
   },
   {
     id: "claude-sonnet-4",
@@ -162,29 +166,10 @@ export const CLAUDE_MODELS: VertexModelConfig[] = [
       cacheRead: 0.30,
       cacheWrite: 3.75,
     },
-    region: "us-east5",
+    region: "global",
   },
-  // Claude 3.7 series - regional pricing
-  {
-    id: "claude-3-7-sonnet",
-    name: "Claude 3.7 Sonnet",
-    apiId: "claude-3-7-sonnet@20250219",
-    publisher: "anthropic",
-    endpointType: "maas",
-    contextWindow: 200000,
-    maxTokens: 64000,
-    input: ["text", "image"],
-    reasoning: true,
-    tools: true,
-    cost: {
-      input: 3.0,
-      output: 15.0,
-      cacheRead: 0.3,
-      cacheWrite: 3.75,
-    },
-    region: "us-east5",
-  },
-  // Claude 3.5 series - regional pricing
+
+  // Claude 3.5 series
   {
     id: "claude-3-5-sonnet-v2",
     name: "Claude 3.5 Sonnet v2",
@@ -197,50 +182,11 @@ export const CLAUDE_MODELS: VertexModelConfig[] = [
     reasoning: false,
     tools: true,
     cost: {
-      input: 3.0,
-      output: 15.0,
-      cacheRead: 0.3,
+      input: 3.00,
+      output: 15.00,
+      cacheRead: 0.30,
       cacheWrite: 3.75,
     },
-    region: "us-east5",
-  },
-  {
-    id: "claude-3-5-sonnet",
-    name: "Claude 3.5 Sonnet",
-    apiId: "claude-3-5-sonnet@20240620",
-    publisher: "anthropic",
-    endpointType: "maas",
-    contextWindow: 200000,
-    maxTokens: 8192,
-    input: ["text", "image"],
-    reasoning: false,
-    tools: true,
-    cost: {
-      input: 3.0,
-      output: 15.0,
-      cacheRead: 0.3,
-      cacheWrite: 3.75,
-    },
-    region: "us-east5",
-  },
-  // Claude 3 Haiku - regional pricing
-  {
-    id: "claude-3-haiku",
-    name: "Claude 3 Haiku",
-    apiId: "claude-3-haiku@20240307",
-    publisher: "anthropic",
-    endpointType: "maas",
-    contextWindow: 200000,
-    maxTokens: 4096,
-    input: ["text"],
-    reasoning: false,
-    tools: true,
-    cost: {
-      input: 0.25,
-      output: 1.25,
-      cacheRead: 0.03,
-      cacheWrite: 0.3,
-    },
-    region: "us-east5",
+    region: "global",
   },
 ];

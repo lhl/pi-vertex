@@ -116,14 +116,15 @@ alias pil="GOOGLE_CLOUD_PROJECT=your-project pi --provider vertex --model llama-
 
 | Model | Context | Max Tokens | Input | Reasoning | Price (in/out) |
 |-------|---------|------------|-------|-----------|----------------|
-| gemini-3.1-pro | 1M | 64,000 | text, image | ✅ | $2.00/$12.00 |
-| gemini-3-pro | 2M | 8,192 | text, image | ✅ | $1.25/$10.00 |
-| gemini-3-flash | 1M | 8,192 | text, image | ✅ | $0.15/$0.60 |
-| gemini-2.5-pro | 1M | 64,000 | text, image | ✅ | $1.25/$10.00 |
-| gemini-2.5-flash | 1M | 64,000 | text, image | ✅ | $0.30/$2.50 |
-| gemini-2.5-flash-lite | 1M | 64,000 | text, image | ✅ | $0.10/$0.40 |
+| gemini-3.1-pro | 1M | 65,536 | text, image | ✅ | $2.00/$12.00 |
+| gemini-3.1-flash-lite | 1M | 65,535 | text, image | ✅ | $0.25/$1.50 |
+| gemini-3-pro | 1M | 65,536 | text, image | ✅ | $2.00/$12.00 |
+| gemini-3-flash | 1M | 65,536 | text, image | ✅ | $0.50/$3.00 |
+| gemini-2.5-pro | 1M | 65,536 | text, image | ✅ | $1.25/$10.00 |
+| gemini-2.5-flash | 1M | 65,536 | text, image | ✅ | $0.30/$2.50 |
+| gemini-2.5-flash-lite | 1M | 65,536 | text, image | ✅ | $0.10/$0.40 |
 | gemini-2.0-flash | 1M | 8,192 | text, image | ❌ | $0.15/$0.60 |
-| gemini-2.0-flash-lite | 1M | 8,192 | text | ❌ | $0.075/$0.30 |
+| gemini-2.0-flash-lite | 1M | 8,192 | text, image | ❌ | $0.075/$0.30 |
 
 ### Claude Models
 
@@ -134,13 +135,10 @@ alias pil="GOOGLE_CLOUD_PROJECT=your-project pi --provider vertex --model llama-
 | claude-opus-4-5 | 200K | 32,000 | text, image | ✅ | $5.00/$25.00 | global |
 | claude-sonnet-4-5 | 200K | 64,000 | text, image | ✅ | $3.00/$15.00 | global |
 | claude-haiku-4-5 | 200K | 64,000 | text, image | ✅ | $1.00/$5.00 | global |
-| claude-opus-4-1 | 200K | 32,000 | text, image | ✅ | $15.00/$75.00 | us-east5 |
-| claude-opus-4 | 200K | 32,000 | text, image | ✅ | $15.00/$75.00 | us-east5 |
-| claude-sonnet-4 | 200K | 64,000 | text, image | ✅ | $3.00/$15.00 | us-east5 |
-| claude-3-7-sonnet | 200K | 64,000 | text, image | ✅ | $3.00/$15.00 | us-east5 |
-| claude-3-5-sonnet-v2 | 200K | 8,192 | text, image | ❌ | $3.00/$15.00 | us-east5 |
-| claude-3-5-sonnet | 200K | 8,192 | text, image | ❌ | $3.00/$15.00 | us-east5 |
-| claude-3-haiku | 200K | 4,096 | text | ❌ | $0.25/$1.25 | us-east5 |
+| claude-opus-4-1 | 200K | 32,000 | text, image | ✅ | $15.00/$75.00 | global |
+| claude-opus-4 | 200K | 32,000 | text, image | ✅ | $15.00/$75.00 | global |
+| claude-sonnet-4 | 200K | 64,000 | text, image | ✅ | $3.00/$15.00 | global |
+| claude-3-5-sonnet-v2 | 200K | 8,192 | text, image | ❌ | $3.00/$15.00 | global |
 
 ### Llama Models
 
@@ -154,8 +152,6 @@ alias pil="GOOGLE_CLOUD_PROJECT=your-project pi --provider vertex --model llama-
 
 | Model | Context | Publisher | Price (in/out) | Region |
 |-------|---------|-----------|----------------|--------|
-| jamba-1.5-large | 256K | ai21 | $2.00/$8.00 | global |
-| jamba-1.5-mini | 256K | ai21 | $0.20/$0.40 | global |
 | mistral-medium-3 | 128K | mistralai | $0.40/$2.00 | global |
 | mistral-small-3.1 | 128K | mistralai | $0.10/$0.30 | global |
 | mistral-ocr | 30 pages | mistralai | $0.0005/page | global |
@@ -184,8 +180,7 @@ Models use different endpoints based on availability:
 
 Default regions by model:
 - Gemini: `global`
-- Claude 4.6/4.5: `global`
-- Claude 4/4.1/3.7/3.5/3: `us-east5`
+- Claude (all): `global`
 - MaaS: `global`
 
 Override with:

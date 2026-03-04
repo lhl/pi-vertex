@@ -1,13 +1,14 @@
 /**
  * MaaS (Model-as-a-Service) open model definitions for Vertex AI
- * Pricing: https://cloud.google.com/vertex-ai/generative-ai/pricing#open-models
- * All prices per 1M tokens (as of Feb 2025)
+ * Source: https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-partner-models
+ * Pricing: https://cloud.google.com/vertex-ai/generative-ai/pricing#partner-models
+ * All prices per 1M tokens
  */
 
 import type { VertexModelConfig } from "../types.js";
 
 export const MAAS_MODELS: VertexModelConfig[] = [
-  // Llama models (Meta)
+  // --- Meta Llama ---
   {
     id: "llama-4-maverick",
     name: "Llama 4 Maverick",
@@ -66,7 +67,7 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     region: "global",
   },
 
-  // Mistral models
+  // --- Mistral AI ---
   {
     id: "mistral-medium-3",
     name: "Mistral Medium 3",
@@ -106,25 +107,6 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     region: "global",
   },
   {
-    id: "mistral-ocr",
-    name: "Mistral OCR",
-    apiId: "mistralai/mistral-ocr-2505",
-    publisher: "mistralai",
-    endpointType: "maas",
-    contextWindow: 128000,
-    maxTokens: 32000,
-    input: ["text", "image"],
-    reasoning: false,
-    tools: false,
-    cost: {
-      input: 0.50,  // Per page: $0.0005/page, shown as approx per 1K pages
-      output: 0.50,  // Per page pricing
-      cacheRead: 0,
-      cacheWrite: 0,
-    },
-    region: "global",
-  },
-  {
     id: "codestral-2",
     name: "Codestral 2",
     apiId: "mistralai/codestral-2",
@@ -143,8 +125,27 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     },
     region: "global",
   },
+  {
+    id: "mistral-ocr",
+    name: "Mistral OCR",
+    apiId: "mistralai/mistral-ocr-2505",
+    publisher: "mistralai",
+    endpointType: "maas",
+    contextWindow: 128000,
+    maxTokens: 32000,
+    input: ["text", "image"],
+    reasoning: false,
+    tools: false,
+    cost: {
+      input: 0.0005,
+      output: 0.0005,
+      cacheRead: 0,
+      cacheWrite: 0,
+    },
+    region: "global",
+  },
 
-  // DeepSeek models
+  // --- DeepSeek ---
   {
     id: "deepseek-v3.2",
     name: "DeepSeek V3.2",
@@ -202,48 +203,27 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     },
     region: "global",
   },
-
-  // AI21 Labs models
   {
-    id: "jamba-1.5-large",
-    name: "Jamba 1.5 Large",
-    apiId: "ai21/jamba-1.5-large",
-    publisher: "ai21",
+    id: "deepseek-ocr",
+    name: "DeepSeek OCR",
+    apiId: "deepseek-ai/deepseek-ocr-maas",
+    publisher: "deepseek-ai",
     endpointType: "maas",
-    contextWindow: 256000,
-    maxTokens: 256000,
-    input: ["text"],
+    contextWindow: 163840,
+    maxTokens: 32000,
+    input: ["text", "image"],
     reasoning: false,
-    tools: true,
+    tools: false,
     cost: {
-      input: 2.00,
-      output: 8.00,
-      cacheRead: 0,
-      cacheWrite: 0,
-    },
-    region: "global",
-  },
-  {
-    id: "jamba-1.5-mini",
-    name: "Jamba 1.5 Mini",
-    apiId: "ai21/jamba-1.5-mini",
-    publisher: "ai21",
-    endpointType: "maas",
-    contextWindow: 256000,
-    maxTokens: 256000,
-    input: ["text"],
-    reasoning: false,
-    tools: true,
-    cost: {
-      input: 0.20,
-      output: 0.40,
+      input: 0.30,
+      output: 1.20,
       cacheRead: 0,
       cacheWrite: 0,
     },
     region: "global",
   },
 
-  // OpenAI models (gpt-oss)
+  // --- OpenAI (gpt-oss) ---
   {
     id: "gpt-oss-120b",
     name: "GPT-OSS 120B",
@@ -283,28 +263,7 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     region: "global",
   },
 
-  // DeepSeek OCR
-  {
-    id: "deepseek-ocr",
-    name: "DeepSeek OCR",
-    apiId: "deepseek-ai/deepseek-ocr-maas",
-    publisher: "deepseek-ai",
-    endpointType: "maas",
-    contextWindow: 163840,
-    maxTokens: 32000,
-    input: ["text", "image"],
-    reasoning: false,
-    tools: false,
-    cost: {
-      input: 0.30,  // Per page: $0.0003/page
-      output: 1.20,  // Per page pricing
-      cacheRead: 0,
-      cacheWrite: 0,
-    },
-    region: "global",
-  },
-
-  // Qwen models
+  // --- Qwen ---
   {
     id: "qwen3-235b",
     name: "Qwen 3 235B",
@@ -382,7 +341,7 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     region: "global",
   },
 
-  // Other models
+  // --- Moonshot ---
   {
     id: "kimi-k2-thinking",
     name: "Kimi K2 Thinking",
@@ -402,6 +361,8 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     },
     region: "global",
   },
+
+  // --- MiniMax ---
   {
     id: "minimax-m2",
     name: "MiniMax M2",
@@ -421,6 +382,8 @@ export const MAAS_MODELS: VertexModelConfig[] = [
     },
     region: "global",
   },
+
+  // --- GLM (Zhipu AI) ---
   {
     id: "glm-5",
     name: "GLM 5",
