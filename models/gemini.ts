@@ -50,25 +50,6 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
 
   // --- Gemini 3 (Preview) ---
   {
-    id: "gemini-3-pro",
-    name: "Gemini 3 Pro",
-    apiId: "gemini-3-pro-preview",
-    publisher: "google",
-    endpointType: "gemini",
-    contextWindow: 1048576,
-    maxTokens: 65536,
-    input: ["text", "image"],
-    reasoning: true,
-    tools: true,
-    cost: {
-      input: 2.00,
-      output: 12.00,
-      cacheRead: 0.20,
-      cacheWrite: 0,
-    },
-    region: "global",
-  },
-  {
     id: "gemini-3-flash",
     name: "Gemini 3 Flash",
     apiId: "gemini-3-flash-preview",
