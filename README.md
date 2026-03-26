@@ -130,8 +130,8 @@ alias pil="GOOGLE_CLOUD_PROJECT=your-project pi --provider vertex --model llama-
 
 | Model | Context | Max Tokens | Input | Reasoning | Price (in/out) | Region |
 |-------|---------|------------|-------|-----------|----------------|--------|
-| claude-opus-4-6 | 200K | 32,000 | text, image | ✅ | $5.00/$25.00 | global |
-| claude-sonnet-4-6 | 200K | 64,000 | text, image | ✅ | $3.00/$15.00 | global |
+| claude-opus-4-6 | 1M | 32,000 | text, image | ✅ | $5.00/$25.00 | global |
+| claude-sonnet-4-6 | 1M | 64,000 | text, image | ✅ | $3.00/$15.00 | global |
 | claude-opus-4-5 | 200K | 32,000 | text, image | ✅ | $5.00/$25.00 | global |
 | claude-sonnet-4-5 | 200K | 64,000 | text, image | ✅ | $3.00/$15.00 | global |
 | claude-haiku-4-5 | 200K | 64,000 | text, image | ✅ | $1.00/$5.00 | global |
@@ -213,6 +213,7 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 ## Dependencies
 
 - `@google/genai`: Google GenAI SDK for Gemini models
+- `@anthropic-ai/vertex-sdk`: Official Anthropic-on-Vertex SDK for Claude models (native streaming)
 - `google-auth-library`: ADC authentication for all models
 - `@mariozechner/pi-ai`: Peer dependency
 - `@mariozechner/pi-coding-agent`: Peer dependency
