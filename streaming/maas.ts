@@ -364,7 +364,7 @@ export function streamMaaS(
           supportsDeveloperRole: false,
           supportsReasoningEffort: false,
           maxTokensField: "max_tokens",
-          thinkingFormat: model.publisher === "qwen" ? "qwen" : "openai",
+          thinkingFormat: model.publisher === "qwen" ? "qwen" : model.publisher === "zai-org" ? "zai" : "openai",
         },
       };
 
