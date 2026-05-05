@@ -3,7 +3,31 @@
 [![npm version](https://img.shields.io/npm/v/@lhl/pi-vertex)](https://www.npmjs.com/package/@lhl/pi-vertex)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Forked from [`@ssweens/pi-vertex`](https://github.com/ssweens/pi-packages/tree/main/pi-vertex) with added tests, CI, and linting.
+A Google Vertex AI provider for the [Pi Coding Agent](https://pi.dev) — giving you access to Gemini, Claude, Llama, DeepSeek, Qwen, Mistral, and 20+ other MaaS models through a single provider, billed through your GCP project.
+
+## About this fork
+
+This is a **fork** of [`@ssweens/pi-vertex`](https://github.com/ssweens/pi-packages/tree/main/pi-vertex). The original is excellent on features (43 models, unified streaming, tool calling, thinking/reasoning support) but was shipped as "works for me" software — no tests, no CI, placeholder npm scripts (`echo 'nothing to check'`), and no public issue tracker.
+
+We created this fork to add the engineering rigor needed for daily use:
+
+### What's been added
+
+| Improvement | Details |
+|-------------|---------|
+| **76 unit tests** | `auth.ts`, `config.ts`, `utils.ts`, `models/`, `streaming/index.ts`, `convertToGeminiMessages` — covering message conversion, tool call normalization, cost calculation, auth resolution, model validation |
+| **GitHub Actions CI** | Type-check (`tsc --noEmit`), lint (`biome check`), test + coverage on every push/PR |
+| **Biome linting/formatting** | Replaces none. Catches `noExplicitAny`, enforces import sorting, consistent formatting |
+| **Real npm scripts** | `build`, `check`, `test`, `test:coverage`, `clean` — no more `echo 'nothing to check'` |
+| **Bug fixes** | `streamAnthropic()` now calls `stream.end()` (was missing, causing potential hangs); removed hardcoded `maxTokens / 2` halving (was wasting half of every model's output capacity) |
+| **Standalone repo** | Filtered from the `ssweens/pi-packages` monorepo with `git filter-repo` for focused development |
+
+### Fork provenance
+
+- **Original upstream**: [`ssweens/pi-packages`](https://github.com/ssweens/pi-packages) (path: `pi-vertex/`)
+- **Fork point**: v1.1.4 (commit `598534cf`, 2026-03-30)
+- **Filtered with**: `git filter-repo --path pi-vertex/ --path-rename pi-vertex/:` (preserves full upstream git history)
+- **This repo**: [`lhl/pi-vertex`](https://github.com/lhl/pi-vertex)
 
 ![pi-vertex model selector](screenshot.png)
 
@@ -34,10 +58,16 @@ Set your GCP project and credentials. Vertex AI models (Gemini, Claude, Llama, D
 
 ```bash
 # Via pi (recommended)
-pi install @ssweens/pi-vertex
+pi install @lhl/pi-vertex
 
 # Or via npm
-npm install @ssweens/pi-vertex
+npm install @lhl/pi-vertex
+
+# Or from source
+git clone https://github.com/lhl/pi-vertex.git
+cd pi-vertex
+npm install
+# pi install /path/to/pi-vertex
 ```
 
 ## Setup
