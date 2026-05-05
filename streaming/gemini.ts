@@ -88,7 +88,7 @@ export function streamGemini(
 
       // Build config — only set temperature when explicitly provided
       const config: any = {
-        maxOutputTokens: options?.maxTokens || Math.floor(model.maxTokens / 2),
+        maxOutputTokens: options?.maxTokens || model.maxTokens,
         ...(options?.temperature !== undefined && { temperature: options.temperature }),
       };
 

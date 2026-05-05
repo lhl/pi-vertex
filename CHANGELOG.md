@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.6] - 2026-05-05
+### Added
+- Comprehensive unit tests for `convertToGeminiMessages` (27 test cases covering user text, images, assistant text/thinking/tool calls, tool results, cross-provider signatures, and multi-turn conversations).
+- Unit tests for `streamVertex` dispatch logic (gemini vs maas routing, unknown endpoint type errors).
+### Fixed
+- `streamAnthropic()` now calls `stream.end()` internally instead of relying on the caller, preventing potential stream hangs on early returns or mid-stream errors.
+- Removed hardcoded `maxTokens / 2` halving in `streaming/gemini.ts` and `streaming/maas.ts`. Models now use their full advertised output capacity unless explicitly overridden via `options.maxTokens`.
+
 ## [1.1.5] - 2026-05-05
 ### Changed
 - Forked to `lhl/pi-vertex` with standalone repository, CI, tests, and linting.
