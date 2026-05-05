@@ -73,7 +73,13 @@ describe("convertToGeminiMessages", () => {
     it("sanitizes lone surrogates in user text", () => {
       const messages: Message[] = [user("Hello \uD800 world")];
       const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
-      expect(result[0].parts[0].text).toBe("Hello \uFFFD world");
+      expect(result[0].parts[0].text).toBe("Hello  world");
+    });
+
+    it("preserves valid surrogate pairs in user text", () => {
+      const messages: Message[] = [user("Hello 😀 world")];
+      const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
+      expect(result[0].parts[0].text).toBe("Hello 😀 world");
     });
   });
 
@@ -336,6 +342,95 @@ describe("convertToGeminiMessages", () => {
       const messages: Message[] = [toolResult("tc-1", "read", [{ type: "text", text: "" }])];
       const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
       expect(result[0].parts[0].functionResponse.response.output).toBe("");
+    });
+
+    it("includes image toolResult parts inside Gemini 3 functionResponse", () => {
+      const messages: Message[] = [
+        toolResult("tc-1", "screenshot", [
+          { type: "text", text: "screen" },
+          { type: "image", data: "base64img", mimeType: "image/png" },
+        ]),
+      ];
+      const result = convertToGeminiMessages(messages, "gemini-3-pro");
+      expect(result).toEqual([
+        {
+          role: "user",
+          parts: [
+            {
+              functionResponse: {
+                name: "screenshot",
+                response: { output: "screen" },
+                parts: [{ inlineData: { mimeType: "image/png", data: "base64img" } }],
+              },
+            },
+          ],
+        },
+      ]);
+    });
+
+    it("sends image toolResult parts as a separate user turn for Gemini 2.5", () => {
+      const messages: Message[] = [
+        toolResult("tc-1", "screenshot", [
+          { type: "image", data: "base64img", mimeType: "image/png" },
+        ]),
+      ];
+      const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
+      expect(result).toEqual([
+        {
+          role: "user",
+          parts: [
+            {
+              functionResponse: {
+                name: "screenshot",
+                response: { output: "(see attached image)" },
+              },
+            },
+          ],
+        },
+        {
+          role: "user",
+          parts: [
+            { text: "Tool result image:" },
+            { inlineData: { mimeType: "image/png", data: "base64img" } },
+          ],
+        },
+      ]);
+    });
+
+    it("synthesizes missing toolResults before the next user turn", () => {
+      const messages: Message[] = [
+        assistant({
+          content: [
+            { type: "toolCall", id: "tc-1", name: "read", arguments: { path: "/tmp/test" } },
+            { type: "toolCall", id: "tc-2", name: "write", arguments: { path: "/tmp/out" } },
+          ],
+        }),
+        toolResult("tc-1", "read", [{ type: "text", text: "contents" }]),
+        user("continue"),
+      ];
+      const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
+      expect(result).toEqual([
+        {
+          role: "model",
+          parts: [
+            { functionCall: { name: "read", args: { path: "/tmp/test" } } },
+            { functionCall: { name: "write", args: { path: "/tmp/out" } } },
+          ],
+        },
+        {
+          role: "user",
+          parts: [
+            { functionResponse: { name: "read", response: { output: "contents" } } },
+            {
+              functionResponse: {
+                name: "write",
+                response: { error: "No result provided" },
+              },
+            },
+          ],
+        },
+        { role: "user", parts: [{ text: "continue" }] },
+      ]);
     });
   });
 

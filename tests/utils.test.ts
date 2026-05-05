@@ -14,13 +14,17 @@ describe("sanitizeText", () => {
     expect(sanitizeText("hello world")).toBe("hello world");
   });
 
-  it("replaces lone surrogates with replacement character", () => {
-    expect(sanitizeText("\uD800")).toBe("\uFFFD");
-    expect(sanitizeText("\uDFFF")).toBe("\uFFFD");
+  it("preserves valid surrogate pairs", () => {
+    expect(sanitizeText("hello 😀 world")).toBe("hello 😀 world");
   });
 
-  it("replaces surrogate pairs inside text", () => {
-    expect(sanitizeText("a\uD800b\uDFFFc")).toBe("a\uFFFDb\uFFFDc");
+  it("removes lone surrogates", () => {
+    expect(sanitizeText("\uD800")).toBe("");
+    expect(sanitizeText("\uDFFF")).toBe("");
+  });
+
+  it("removes unpaired surrogates inside text", () => {
+    expect(sanitizeText("a\uD800b\uDFFFc")).toBe("abc");
   });
 });
 

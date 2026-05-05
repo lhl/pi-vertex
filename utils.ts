@@ -7,6 +7,7 @@
 
 import type {
   AssistantMessage,
+  ImageContent,
   Message,
   TextContent,
   ThinkingContent,
@@ -15,10 +16,14 @@ import type {
 } from "./types.js";
 
 /**
- * Sanitize text by removing invalid surrogate pairs
+ * Sanitize text by removing unpaired surrogate code units.
+ * Valid surrogate pairs, such as emoji, must be preserved.
  */
 export function sanitizeText(text: string): string {
-  return text.replace(/[\uD800-\uDFFF]/g, "\uFFFD");
+  return text.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    "",
+  );
 }
 
 // --- Thought signature helpers (matching pi-mono google-shared.ts) ---
@@ -58,6 +63,17 @@ function requiresToolCallId(modelId: string): boolean {
   return modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
 }
 
+function getGeminiMajorVersion(modelId: string): number | undefined {
+  const match = modelId.toLowerCase().match(/^gemini(?:-live)?-(\d+)/);
+  return match ? Number.parseInt(match[1], 10) : undefined;
+}
+
+function supportsMultimodalFunctionResponse(modelId: string): boolean {
+  const majorVersion = getGeminiMajorVersion(modelId);
+  if (majorVersion !== undefined) return majorVersion >= 3;
+  return true;
+}
+
 /**
  * Convert messages to Gemini format.
  *
@@ -67,9 +83,78 @@ function requiresToolCallId(modelId: string): boolean {
 export function convertToGeminiMessages(messages: Message[], modelId: string): any[] {
   const result: any[] = [];
   const isGemini3 = modelId.startsWith("gemini-3");
+  const includeToolCallId = requiresToolCallId(modelId);
+  let pendingToolCalls: ToolCall[] = [];
+  let existingToolResultIds = new Set<string>();
+
+  const pushToolResult = (
+    toolCallId: string,
+    toolName: string,
+    content: ToolResultMessage["content"],
+    isError: boolean,
+  ) => {
+    const textContent = content.filter((c): c is TextContent => c.type === "text");
+    const textResult = textContent.map((c) => c.text).join("\n");
+    const imageContent = content.filter((c): c is ImageContent => c.type === "image");
+    const hasText = textResult.length > 0;
+    const hasImages = imageContent.length > 0;
+    const responseValue = hasText
+      ? sanitizeText(textResult)
+      : hasImages
+        ? "(see attached image)"
+        : "";
+    const imageParts = imageContent.map((imageBlock) => ({
+      inlineData: {
+        mimeType: imageBlock.mimeType,
+        data: imageBlock.data,
+      },
+    }));
+
+    const functionResponsePart: any = {
+      functionResponse: {
+        name: toolName,
+        response: isError ? { error: responseValue } : { output: responseValue },
+        ...(hasImages && supportsMultimodalFunctionResponse(modelId) ? { parts: imageParts } : {}),
+        ...(includeToolCallId ? { id: toolCallId } : {}),
+      },
+    };
+
+    // Merge consecutive tool results into a single user turn (required by Gemini API)
+    const lastContent = result[result.length - 1];
+    if (lastContent?.role === "user" && lastContent.parts?.some((p: any) => p.functionResponse)) {
+      lastContent.parts.push(functionResponsePart);
+    } else {
+      result.push({ role: "user", parts: [functionResponsePart] });
+    }
+
+    // Gemini < 3 carries tool-result images as a separate user image turn.
+    if (hasImages && !supportsMultimodalFunctionResponse(modelId)) {
+      result.push({
+        role: "user",
+        parts: [{ text: "Tool result image:" }, ...imageParts],
+      });
+    }
+  };
+
+  const flushMissingToolResults = () => {
+    if (pendingToolCalls.length === 0) return;
+    for (const toolCall of pendingToolCalls) {
+      if (!existingToolResultIds.has(toolCall.id)) {
+        pushToolResult(
+          toolCall.id,
+          toolCall.name,
+          [{ type: "text", text: "No result provided" }],
+          true,
+        );
+      }
+    }
+    pendingToolCalls = [];
+    existingToolResultIds = new Set<string>();
+  };
 
   for (const msg of messages) {
     if (msg.role === "user") {
+      flushMissingToolResults();
       if (typeof msg.content === "string") {
         if (msg.content.trim()) {
           result.push({
@@ -95,6 +180,7 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
       }
     } else if (msg.role === "assistant") {
       const assistantMsg = msg as AssistantMessage;
+      flushMissingToolResults();
 
       // Skip errored/aborted messages — they're incomplete turns
       if (assistantMsg.stopReason === "error" || assistantMsg.stopReason === "aborted") {
@@ -102,8 +188,11 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
       }
 
       const isSameProviderAndModel =
-        assistantMsg.provider === "vertex" && assistantMsg.model === modelId;
+        assistantMsg.provider === "vertex" &&
+        assistantMsg.api === "google-generative-ai" &&
+        assistantMsg.model === modelId;
       const parts: any[] = [];
+      const toolCalls: ToolCall[] = [];
 
       for (const block of assistantMsg.content) {
         if (block.type === "text") {
@@ -136,6 +225,7 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
           }
         } else if (block.type === "toolCall") {
           const toolCallBlock = block as ToolCall;
+          toolCalls.push(toolCallBlock);
           const thoughtSig = resolveThoughtSignature(
             isSameProviderAndModel,
             toolCallBlock.thoughtSignature,
@@ -145,7 +235,7 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
             functionCall: {
               name: toolCallBlock.name,
               args: toolCallBlock.arguments ?? {},
-              ...(requiresToolCallId(modelId) ? { id: toolCallBlock.id } : {}),
+              ...(includeToolCallId ? { id: toolCallBlock.id } : {}),
             },
           };
           if (thoughtSig) {
@@ -164,32 +254,23 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
       if (parts.length > 0) {
         result.push({ role: "model", parts });
       }
+      if (toolCalls.length > 0) {
+        pendingToolCalls = toolCalls;
+        existingToolResultIds = new Set<string>();
+      }
     } else if (msg.role === "toolResult") {
       const toolResultMsg = msg as ToolResultMessage;
-      const textContent = toolResultMsg.content.filter(
-        (c: any) => c.type === "text",
-      ) as TextContent[];
-      const textResult = textContent.map((c) => c.text).join("\n");
-      const responseValue = textResult || "";
-
-      const includeId = requiresToolCallId(modelId);
-      const functionResponsePart: any = {
-        functionResponse: {
-          name: toolResultMsg.toolName,
-          response: toolResultMsg.isError ? { error: responseValue } : { output: responseValue },
-          ...(includeId ? { id: toolResultMsg.toolCallId } : {}),
-        },
-      };
-
-      // Merge consecutive tool results into a single user turn (required by Gemini API)
-      const lastContent = result[result.length - 1];
-      if (lastContent?.role === "user" && lastContent.parts?.some((p: any) => p.functionResponse)) {
-        lastContent.parts.push(functionResponsePart);
-      } else {
-        result.push({ role: "user", parts: [functionResponsePart] });
-      }
+      existingToolResultIds.add(toolResultMsg.toolCallId);
+      pushToolResult(
+        toolResultMsg.toolCallId,
+        toolResultMsg.toolName,
+        toolResultMsg.content,
+        toolResultMsg.isError,
+      );
     }
   }
+
+  flushMissingToolResults();
 
   return result;
 }

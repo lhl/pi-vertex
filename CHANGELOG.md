@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.7] - 2026-05-06
+### Added
+- Claude Opus 4.7 model definition and README references using current Vertex metadata.
+- Integration-style tests for `streamGemini()` with mocked `@google/genai` streaming responses.
+- Additional Gemini conversion tests for valid Unicode, image tool results, and missing tool result synthesis.
+### Fixed
+- Preserve valid Unicode surrogate pairs while removing only unpaired surrogates before provider requests.
+- Avoid double-counting Gemini cached input tokens as both uncached input and cache reads.
+- Replay Gemini image tool results instead of silently dropping images.
+- Insert synthetic Gemini tool results for missing tool call responses before replaying the next turn.
+- Map unsupported Gemini 3 Pro `minimal` reasoning to `LOW` while preserving supported `MEDIUM` and `HIGH` levels.
+- Use Gemini 2.5 Pro's lowest supported thinking budget when Pi reasoning is disabled instead of sending an invalid zero budget.
+- Emit Gemini safety/blocked finishes as `error` stream events instead of `done` events with an invalid error stop reason.
+- Update Claude 4.6 Vertex model metadata to current 128K output limits and current token pricing.
+
 ## [1.1.6] - 2026-05-05
 ### Added
 - Comprehensive unit tests for `convertToGeminiMessages` (27 test cases covering user text, images, assistant text/thinking/tool calls, tool results, cross-provider signatures, and multi-turn conversations).

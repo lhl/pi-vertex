@@ -33,6 +33,46 @@ const THINKING_LEVEL_MAP: Record<string, ThinkingLevel> = {
   high: ThinkingLevel.HIGH,
 };
 
+interface GeminiThinkingConfig {
+  includeThoughts?: boolean;
+  thinkingBudget?: number;
+  thinkingLevel?: ThinkingLevel;
+}
+
+function isGemini3ProModel(modelId: string): boolean {
+  return /gemini-3(?:\.\d+)?-pro/.test(modelId.toLowerCase());
+}
+
+function isGemini3FlashModel(modelId: string): boolean {
+  return /gemini-3(?:\.\d+)?-flash/.test(modelId.toLowerCase());
+}
+
+function isGemini25ProModel(modelId: string): boolean {
+  return /gemini-2\.5-pro/.test(modelId.toLowerCase());
+}
+
+function getGemini3ThinkingLevel(effort: string, modelId: string): ThinkingLevel {
+  if (isGemini3ProModel(modelId)) {
+    if (effort === "minimal" || effort === "low") return ThinkingLevel.LOW;
+    if (effort === "medium") return ThinkingLevel.MEDIUM;
+    return ThinkingLevel.HIGH;
+  }
+  return THINKING_LEVEL_MAP[effort];
+}
+
+function getLowestThinkingConfig(modelId: string): GeminiThinkingConfig {
+  if (isGemini3ProModel(modelId)) {
+    return { thinkingLevel: ThinkingLevel.LOW };
+  }
+  if (isGemini3FlashModel(modelId)) {
+    return { thinkingLevel: ThinkingLevel.MINIMAL };
+  }
+  if (isGemini25ProModel(modelId)) {
+    return { thinkingBudget: 128 };
+  }
+  return { thinkingBudget: 0 };
+}
+
 function mapGeminiStopReason(reason: string): "stop" | "length" | "toolUse" | "error" {
   switch (reason) {
     case FinishReason.STOP:
@@ -103,27 +143,31 @@ export function streamGemini(
       }
 
       // Add thinking configuration (matches pi-mono's buildParams logic)
-      if (model.reasoning && options?.reasoning) {
-        const effort = options.reasoning === "xhigh" ? "high" : options.reasoning;
-        const isGemini3 = model.apiId.startsWith("gemini-3");
+      if (model.reasoning) {
+        if (options?.reasoning) {
+          const effort = options.reasoning === "xhigh" ? "high" : options.reasoning;
+          const isGemini3 = model.apiId.startsWith("gemini-3");
 
-        const thinkingConfig: any = { includeThoughts: true };
+          const thinkingConfig: GeminiThinkingConfig = { includeThoughts: true };
 
-        if (isGemini3) {
-          // Gemini 3 models use thinking levels (MINIMAL/LOW/MEDIUM/HIGH)
-          thinkingConfig.thinkingLevel = THINKING_LEVEL_MAP[effort];
+          if (isGemini3) {
+            // Gemini 3 Pro does not support MINIMAL; Flash models do.
+            thinkingConfig.thinkingLevel = getGemini3ThinkingLevel(effort, model.apiId);
+          } else {
+            // Gemini 2.5 models use thinking budgets (token counts)
+            const budgets: Record<string, number> = {
+              minimal: 128,
+              low: 2048,
+              medium: 8192,
+              high: model.apiId.includes("2.5-pro") ? 32768 : 24576,
+            };
+            thinkingConfig.thinkingBudget = budgets[effort] ?? 8192;
+          }
+
+          config.thinkingConfig = thinkingConfig;
         } else {
-          // Gemini 2.5 models use thinking budgets (token counts)
-          const budgets: Record<string, number> = {
-            minimal: 128,
-            low: 2048,
-            medium: 8192,
-            high: model.apiId.includes("2.5-pro") ? 32768 : 24576,
-          };
-          thinkingConfig.thinkingBudget = budgets[effort] ?? 8192;
+          config.thinkingConfig = getLowestThinkingConfig(model.apiId);
         }
-
-        config.thinkingConfig = thinkingConfig;
       }
 
       // Pass abort signal to SDK for in-flight cancellation
@@ -148,6 +192,7 @@ export function streamGemini(
       let currentBlockType: "text" | "thinking" | null = null;
 
       for await (const chunk of response) {
+        output.responseId ||= chunk.responseId;
         const candidate = chunk.candidates?.[0];
 
         // Process individual parts (handles thinking vs text detection)
@@ -295,10 +340,11 @@ export function streamGemini(
         // Update usage — include thoughtsTokenCount in output (matches pi-mono)
         if (chunk.usageMetadata) {
           const meta = chunk.usageMetadata as any;
+          const cachedTokens = meta.cachedContentTokenCount || 0;
           output.usage = {
-            input: meta.promptTokenCount || 0,
+            input: Math.max(0, (meta.promptTokenCount || 0) - cachedTokens),
             output: (meta.candidatesTokenCount || 0) + (meta.thoughtsTokenCount || 0),
-            cacheRead: meta.cachedContentTokenCount || 0,
+            cacheRead: cachedTokens,
             cacheWrite: 0,
             totalTokens: meta.totalTokenCount || 0,
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
@@ -332,7 +378,14 @@ export function streamGemini(
         }
       }
 
-      stream.push({ type: "done", reason: output.stopReason as any, message: output });
+      if (options?.signal?.aborted) {
+        throw new Error("Request was aborted");
+      }
+      if (output.stopReason === "aborted" || output.stopReason === "error") {
+        throw new Error(output.errorMessage || "An unknown error occurred");
+      }
+
+      stream.push({ type: "done", reason: output.stopReason, message: output });
       stream.end();
     } catch (error) {
       output.stopReason = options?.signal?.aborted ? "aborted" : "error";
