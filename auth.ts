@@ -5,14 +5,19 @@
  * Resolution order for each value: config file → env var → default
  */
 
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { GoogleAuth } from "google-auth-library";
-import { existsSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
+import { getConfigPath, loadConfig } from "./config.js";
 import type { AuthConfig } from "./types.js";
-import { loadConfig, getConfigPath } from "./config.js";
 
-const DEFAULT_ADC_PATH = join(homedir(), ".config", "gcloud", "application_default_credentials.json");
+const DEFAULT_ADC_PATH = join(
+  homedir(),
+  ".config",
+  "gcloud",
+  "application_default_credentials.json",
+);
 
 /**
  * Check if ADC credentials exist.
@@ -33,14 +38,16 @@ export function hasAdcCredentials(): boolean {
  */
 export function resolveProjectId(): string | undefined {
   const config = loadConfig();
-  return config.googleCloudProject || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+  return (
+    config.googleCloudProject || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT
+  );
 }
 
 /**
  * Resolve location/region.
  * Checks config.googleCloudLocation → GOOGLE_CLOUD_LOCATION → CLOUD_ML_REGION → defaultLocation.
  */
-export function resolveLocation(defaultLocation: string = "us-central1"): string {
+export function resolveLocation(defaultLocation = "us-central1"): string {
   const config = loadConfig();
   return (
     config.googleCloudLocation ||
@@ -57,18 +64,13 @@ export function getAuthConfig(preferredRegion?: string): AuthConfig {
   const projectId = resolveProjectId();
   if (!projectId) {
     throw new Error(
-      "Vertex AI requires a project ID.\n" +
-      `  Config file: set "project" in ${getConfigPath()}\n` +
-      "  Env var: export GOOGLE_CLOUD_PROJECT=your-project-id\n" +
-      "  Also ensure you've run: gcloud auth application-default login"
+      `Vertex AI requires a project ID.\n  Config file: set "project" in ${getConfigPath()}\n  Env var: export GOOGLE_CLOUD_PROJECT=your-project-id\n  Also ensure you've run: gcloud auth application-default login`,
     );
   }
 
   if (!hasAdcCredentials()) {
     throw new Error(
-      "Vertex AI requires Application Default Credentials.\n" +
-      "  Run: gcloud auth application-default login\n" +
-      `  Or set "credentialsFile" in ${getConfigPath()}`
+      `Vertex AI requires Application Default Credentials.\n  Run: gcloud auth application-default login\n  Or set "credentialsFile" in ${getConfigPath()}`,
     );
   }
 
@@ -86,7 +88,9 @@ export async function getAccessToken(): Promise<string> {
   const config = loadConfig();
   const auth = new GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-    ...(config.googleApplicationCredentials ? { keyFile: config.googleApplicationCredentials } : {}),
+    ...(config.googleApplicationCredentials
+      ? { keyFile: config.googleApplicationCredentials }
+      : {}),
   });
   const client = await auth.getClient();
   const token = await client.getAccessToken();

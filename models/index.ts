@@ -2,10 +2,10 @@
  * Export all Vertex AI model definitions
  */
 
-import { GEMINI_MODELS } from "./gemini.js";
-import { CLAUDE_MODELS } from "./claude.js";
-import { MAAS_MODELS } from "./maas.js";
 import type { VertexModelConfig } from "../types.js";
+import { CLAUDE_MODELS } from "./claude.js";
+import { GEMINI_MODELS } from "./gemini.js";
+import { MAAS_MODELS } from "./maas.js";
 
 export const ALL_MODELS: VertexModelConfig[] = [
   ...GEMINI_MODELS,

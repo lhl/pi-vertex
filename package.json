@@ -1,6 +1,6 @@
 {
-  "name": "@ssweens/pi-vertex",
-  "version": "1.1.4",
+  "name": "@lhl/pi-vertex",
+  "version": "1.1.5",
   "description": "Google Vertex AI provider for Pi coding agent - supports Gemini, Claude, and all MaaS models",
   "type": "module",
   "main": "index.ts",
@@ -19,32 +19,39 @@
     "screenshot.png"
   ],
   "scripts": {
-    "clean": "echo 'nothing to clean'",
-    "build": "echo 'nothing to build'",
-    "check": "echo 'nothing to check'"
+    "clean": "rm -rf dist/ coverage/ .vitest/",
+    "build": "tsc --noEmit",
+    "check": "biome check .",
+    "check:fix": "biome check . --write",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/vertex-sdk": "^0.14.4",
     "@google/genai": "^1.42.0",
     "google-auth-library": "^9.0.0"
   },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@vitest/coverage-v8": "^3.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*"
   },
   "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
+    "extensions": ["./index.ts"]
   },
-  "keywords": [
-    "pi-package",
-    "pi-extension",
-    "vertex-ai",
-    "gemini",
-    "claude",
-    "maas"
-  ],
-  "author": "ssweens",
-  "license": "MIT"
+  "keywords": ["pi-package", "pi-extension", "vertex-ai", "gemini", "claude", "maas"],
+  "author": "lhl (forked from ssweens)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lhl/pi-vertex.git"
+  }
 }

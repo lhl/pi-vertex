@@ -5,16 +5,16 @@
  * - Other MaaS models: Vertex OpenAI-compatible Chat Completions endpoint
  */
 
-import type { VertexModelConfig, Context, StreamOptions } from "../types.js";
-import { getAuthConfig, buildBaseUrl, getAccessToken, resolveLocation } from "../auth.js";
+import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
 import {
-  createAssistantMessageEventStream,
   type AssistantMessageEventStream,
   type Model,
-  streamSimpleOpenAICompletions,
   calculateCost,
+  createAssistantMessageEventStream,
+  streamSimpleOpenAICompletions,
 } from "@mariozechner/pi-ai";
-import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
+import { buildBaseUrl, getAccessToken, getAuthConfig, resolveLocation } from "../auth.js";
+import type { Context, StreamOptions, VertexModelConfig } from "../types.js";
 
 function mapAnthropicEffort(reasoning?: string): "low" | "medium" | "high" | "max" | undefined {
   if (!reasoning) return undefined;
@@ -75,7 +75,10 @@ async function streamAnthropic(
       normalized.push({ ...msg, content });
     } else if (msg.role === "toolResult") {
       const mapped = toolIdMap.get(msg.toolCallId);
-      normalized.push({ ...msg, toolCallId: sanitizeToolId(String(mapped ?? msg.toolCallId ?? "")) });
+      normalized.push({
+        ...msg,
+        toolCallId: sanitizeToolId(String(mapped ?? msg.toolCallId ?? "")),
+      });
     } else {
       normalized.push(msg);
     }
@@ -143,7 +146,10 @@ async function streamAnthropic(
           .map((c: any) => {
             if (c.type === "text") return { type: "text", text: c.text };
             if (c.type === "image") {
-              return { type: "image", source: { type: "base64", media_type: c.mimeType, data: c.data } };
+              return {
+                type: "image",
+                source: { type: "base64", media_type: c.mimeType, data: c.data },
+              };
             }
             return null;
           })
@@ -155,17 +161,27 @@ async function streamAnthropic(
 
     if (msg.role === "assistant") {
       const blocks: any[] = [];
-      const isSameModel = msg.provider === "vertex" && msg.api === "anthropic-messages" && msg.model === model.id;
+      const isSameModel =
+        msg.provider === "vertex" && msg.api === "anthropic-messages" && msg.model === model.id;
 
       if (Array.isArray(msg.content)) {
         for (const block of msg.content) {
           if (block.type === "text" && block.text?.trim()) {
             blocks.push({ type: "text", text: block.text });
           } else if (block.type === "toolCall") {
-            blocks.push({ type: "tool_use", id: sanitizeToolId(String(block.id ?? "")), name: block.name, input: block.arguments ?? {} });
+            blocks.push({
+              type: "tool_use",
+              id: sanitizeToolId(String(block.id ?? "")),
+              name: block.name,
+              input: block.arguments ?? {},
+            });
           } else if (block.type === "thinking" && block.thinking?.trim()) {
             if (isSameModel && isValidThinkingSignature(block.thinkingSignature)) {
-              blocks.push({ type: "thinking", thinking: block.thinking, signature: block.thinkingSignature });
+              blocks.push({
+                type: "thinking",
+                thinking: block.thinking,
+                signature: block.thinkingSignature,
+              });
             } else {
               // Cross-model/provider replay: convert thinking to plain text to avoid signature errors.
               blocks.push({ type: "text", text: block.thinking });
@@ -183,11 +199,15 @@ async function streamAnthropic(
       let j = i;
       while (j < replayable.length && replayable[j]?.role === "toolResult") {
         const tr = replayable[j];
-        const text = typeof tr.content === "string"
-          ? tr.content
-          : Array.isArray(tr.content)
-            ? tr.content.filter((c: any) => c?.type === "text").map((c: any) => c.text).join("\n")
-            : JSON.stringify(tr.content ?? "");
+        const text =
+          typeof tr.content === "string"
+            ? tr.content
+            : Array.isArray(tr.content)
+              ? tr.content
+                  .filter((c: any) => c?.type === "text")
+                  .map((c: any) => c.text)
+                  .join("\n")
+              : JSON.stringify(tr.content ?? "");
 
         toolResultBlocks.push({
           type: "tool_result",
@@ -222,7 +242,9 @@ async function streamAnthropic(
     messages,
     ...(context.systemPrompt ? { system: context.systemPrompt } : {}),
     ...(tools && tools.length > 0 ? { tools } : {}),
-    ...(options?.temperature !== undefined && !options?.reasoning ? { temperature: options.temperature } : {}),
+    ...(options?.temperature !== undefined && !options?.reasoning
+      ? { temperature: options.temperature }
+      : {}),
   };
 
   // Thinking
@@ -240,7 +262,14 @@ async function streamAnthropic(
     api: "anthropic-messages",
     provider: "vertex",
     model: model.id,
-    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
     stopReason: "stop",
     timestamp: Date.now(),
   };
@@ -255,20 +284,42 @@ async function streamAnthropic(
       output.usage.input = event.message.usage.input_tokens || 0;
       output.usage.cacheRead = event.message.usage.cache_read_input_tokens || 0;
       output.usage.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
-
     } else if (event.type === "content_block_start") {
       const cb = event.content_block;
       if (cb.type === "text") {
         output.content.push({ type: "text", text: "", index: event.index });
-        stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
+        stream.push({
+          type: "text_start",
+          contentIndex: output.content.length - 1,
+          partial: output,
+        });
       } else if (cb.type === "thinking") {
-        output.content.push({ type: "thinking", thinking: "", thinkingSignature: "", index: event.index });
-        stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
+        output.content.push({
+          type: "thinking",
+          thinking: "",
+          thinkingSignature: "",
+          index: event.index,
+        });
+        stream.push({
+          type: "thinking_start",
+          contentIndex: output.content.length - 1,
+          partial: output,
+        });
       } else if (cb.type === "tool_use") {
-        output.content.push({ type: "toolCall", id: cb.id, name: cb.name, arguments: {}, partialArgs: "", index: event.index });
-        stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
+        output.content.push({
+          type: "toolCall",
+          id: cb.id,
+          name: cb.name,
+          arguments: {},
+          partialArgs: "",
+          index: event.index,
+        });
+        stream.push({
+          type: "toolcall_start",
+          contentIndex: output.content.length - 1,
+          partial: output,
+        });
       }
-
     } else if (event.type === "content_block_delta") {
       const idx = output.content.findIndex((b: any) => b.index === event.index);
       const block = output.content[idx];
@@ -280,40 +331,65 @@ async function streamAnthropic(
         stream.push({ type: "text_delta", contentIndex: idx, delta: delta.text, partial: output });
       } else if (delta.type === "thinking_delta" && block.type === "thinking") {
         block.thinking += delta.thinking;
-        stream.push({ type: "thinking_delta", contentIndex: idx, delta: delta.thinking, partial: output });
+        stream.push({
+          type: "thinking_delta",
+          contentIndex: idx,
+          delta: delta.thinking,
+          partial: output,
+        });
       } else if (delta.type === "signature_delta" && block.type === "thinking") {
         block.thinkingSignature = (block.thinkingSignature || "") + delta.signature;
       } else if (delta.type === "input_json_delta" && block.type === "toolCall") {
         block.partialArgs += delta.partial_json;
-        stream.push({ type: "toolcall_delta", contentIndex: idx, delta: delta.partial_json, partial: output });
+        stream.push({
+          type: "toolcall_delta",
+          contentIndex: idx,
+          delta: delta.partial_json,
+          partial: output,
+        });
       }
-
     } else if (event.type === "content_block_stop") {
       const idx = output.content.findIndex((b: any) => b.index === event.index);
       const block = output.content[idx];
       if (!block) continue;
-      delete block.index;
+      block.index = undefined;
 
       if (block.type === "text") {
         stream.push({ type: "text_end", contentIndex: idx, content: block.text, partial: output });
       } else if (block.type === "thinking") {
-        stream.push({ type: "thinking_end", contentIndex: idx, content: block.thinking, partial: output });
+        stream.push({
+          type: "thinking_end",
+          contentIndex: idx,
+          content: block.thinking,
+          partial: output,
+        });
       } else if (block.type === "toolCall") {
-        try { block.arguments = JSON.parse(block.partialArgs); } catch { block.arguments = {}; }
-        delete block.partialArgs;
+        try {
+          block.arguments = JSON.parse(block.partialArgs);
+        } catch {
+          block.arguments = {};
+        }
+        block.partialArgs = undefined;
         stream.push({ type: "toolcall_end", contentIndex: idx, toolCall: block, partial: output });
       }
-
     } else if (event.type === "message_delta") {
       if (event.delta.stop_reason) {
         const r = event.delta.stop_reason;
-        output.stopReason = r === "end_turn" ? "stop" : r === "max_tokens" ? "length" : r === "tool_use" ? "toolUse" : "stop";
+        output.stopReason =
+          r === "end_turn"
+            ? "stop"
+            : r === "max_tokens"
+              ? "length"
+              : r === "tool_use"
+                ? "toolUse"
+                : "stop";
       }
       if (event.usage?.output_tokens != null) output.usage.output = event.usage.output_tokens;
     }
   }
 
-  output.usage.totalTokens = output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
+  output.usage.totalTokens =
+    output.usage.input + output.usage.output + output.usage.cacheRead + output.usage.cacheWrite;
   calculateCost(model as any, output.usage);
 
   if (output.content.some((b: any) => b.type === "toolCall")) {
@@ -331,7 +407,9 @@ export function streamMaaS(
   const stream = createAssistantMessageEventStream();
 
   (async () => {
-    const apiModelId = model.apiId.includes("/") ? model.apiId : `${model.publisher}/${model.apiId}`;
+    const apiModelId = model.apiId.includes("/")
+      ? model.apiId
+      : `${model.publisher}/${model.apiId}`;
 
     try {
       if (model.publisher === "anthropic") {
@@ -364,7 +442,8 @@ export function streamMaaS(
           supportsDeveloperRole: false,
           supportsReasoningEffort: false,
           maxTokensField: "max_tokens",
-          thinkingFormat: model.publisher === "qwen" ? "qwen" : model.publisher === "zai-org" ? "zai" : "openai",
+          thinkingFormat:
+            model.publisher === "qwen" ? "qwen" : model.publisher === "zai-org" ? "zai" : "openai",
         },
       };
 
@@ -385,7 +464,6 @@ export function streamMaaS(
         stream.push(event);
       }
       stream.end();
-
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : String(error);
       stream.push({
@@ -397,7 +475,14 @@ export function streamMaaS(
           api: model.publisher === "anthropic" ? "anthropic-messages" : "openai-completions",
           provider: "vertex",
           model: model.id,
-          usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+          usage: {
+            input: 0,
+            output: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: 0,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+          },
           stopReason: options?.signal?.aborted ? "aborted" : "error",
           errorMessage: rawMessage,
           timestamp: Date.now(),

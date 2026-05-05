@@ -21,9 +21,9 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     reasoning: true,
     tools: true,
     cost: {
-      input: 2.00,
-      output: 12.00,
-      cacheRead: 0.20,
+      input: 2.0,
+      output: 12.0,
+      cacheRead: 0.2,
       cacheWrite: 0,
     },
     region: "global",
@@ -41,7 +41,7 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     tools: true,
     cost: {
       input: 0.25,
-      output: 1.50,
+      output: 1.5,
       cacheRead: 0.025,
       cacheWrite: 0,
     },
@@ -61,8 +61,8 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     reasoning: true,
     tools: true,
     cost: {
-      input: 0.50,
-      output: 3.00,
+      input: 0.5,
+      output: 3.0,
       cacheRead: 0.05,
       cacheWrite: 0,
     },
@@ -83,7 +83,7 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     tools: true,
     cost: {
       input: 1.25,
-      output: 10.00,
+      output: 10.0,
       cacheRead: 0.125,
       cacheWrite: 0,
     },
@@ -101,8 +101,8 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     reasoning: true,
     tools: true,
     cost: {
-      input: 0.30,
-      output: 2.50,
+      input: 0.3,
+      output: 2.5,
       cacheRead: 0.03,
       cacheWrite: 0,
     },
@@ -120,8 +120,8 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     reasoning: true,
     tools: true,
     cost: {
-      input: 0.10,
-      output: 0.40,
+      input: 0.1,
+      output: 0.4,
       cacheRead: 0.01,
       cacheWrite: 0,
     },
@@ -142,7 +142,7 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     tools: true,
     cost: {
       input: 0.15,
-      output: 0.60,
+      output: 0.6,
       cacheRead: 0,
       cacheWrite: 0,
     },
@@ -161,7 +161,7 @@ export const GEMINI_MODELS: VertexModelConfig[] = [
     tools: true,
     cost: {
       input: 0.075,
-      output: 0.30,
+      output: 0.3,
       cacheRead: 0,
       cacheWrite: 0,
     },

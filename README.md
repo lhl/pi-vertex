@@ -1,12 +1,14 @@
 # pi-vertex
 
-[![npm version](https://img.shields.io/npm/v/@ssweens/pi-vertex)](https://www.npmjs.com/package/@ssweens/pi-vertex)
+[![npm version](https://img.shields.io/npm/v/@lhl/pi-vertex)](https://www.npmjs.com/package/@lhl/pi-vertex)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+Forked from [`@ssweens/pi-vertex`](https://github.com/ssweens/pi-packages/tree/main/pi-vertex) with added tests, CI, and linting.
 
 ![pi-vertex model selector](screenshot.png)
 
 ```bash
-pi install @ssweens/pi-vertex
+pi install @lhl/pi-vertex
 export GOOGLE_CLOUD_PROJECT=your-project-id
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
 ```

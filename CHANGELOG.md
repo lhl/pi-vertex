@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.5] - 2026-05-05
+### Changed
+- Forked to `lhl/pi-vertex` with standalone repository, CI, tests, and linting.
+- Renamed package to `@lhl/pi-vertex`.
+- Added Biome for linting and formatting.
+- Added Vitest with coverage for unit tests (auth, config, utils, models).
+- Added GitHub Actions CI workflow for type-check, lint, and test.
+- Replaced placeholder `npm run check/build/clean` scripts with real implementations.
+
 ## [1.1.4] - 2026-03-30
 ### Fixed
 - Removed error message override for `400 (no body)` responses from Vertex MaaS models. The original message now passes through to `isContextOverflow()` which already handles this pattern, enabling proper auto-compact instead of showing a raw error to the user.

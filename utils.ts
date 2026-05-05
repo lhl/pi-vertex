@@ -78,17 +78,16 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
           });
         }
       } else {
-        const parts = msg.content.map((item) => {
+        const parts = msg.content.map((item: any) => {
           if (item.type === "text") {
             return { text: sanitizeText(item.text) };
-          } else {
-            return {
-              inlineData: {
-                mimeType: item.mimeType,
-                data: item.data,
-              },
-            };
           }
+          return {
+            inlineData: {
+              mimeType: item.mimeType,
+              data: item.data,
+            },
+          };
         });
         if (parts.length > 0) {
           result.push({ role: "user", parts });
@@ -110,7 +109,10 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
         if (block.type === "text") {
           const textBlock = block as TextContent;
           if (!textBlock.text || textBlock.text.trim() === "") continue;
-          const thoughtSig = resolveThoughtSignature(isSameProviderAndModel, textBlock.textSignature);
+          const thoughtSig = resolveThoughtSignature(
+            isSameProviderAndModel,
+            textBlock.textSignature,
+          );
           parts.push({
             text: sanitizeText(textBlock.text),
             ...(thoughtSig && { thoughtSignature: thoughtSig }),
@@ -134,7 +136,10 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
           }
         } else if (block.type === "toolCall") {
           const toolCallBlock = block as ToolCall;
-          const thoughtSig = resolveThoughtSignature(isSameProviderAndModel, toolCallBlock.thoughtSignature);
+          const thoughtSig = resolveThoughtSignature(
+            isSameProviderAndModel,
+            toolCallBlock.thoughtSignature,
+          );
 
           const part: any = {
             functionCall: {
@@ -161,7 +166,9 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
       }
     } else if (msg.role === "toolResult") {
       const toolResultMsg = msg as ToolResultMessage;
-      const textContent = toolResultMsg.content.filter((c) => c.type === "text") as TextContent[];
+      const textContent = toolResultMsg.content.filter(
+        (c: any) => c.type === "text",
+      ) as TextContent[];
       const textResult = textContent.map((c) => c.text).join("\n");
       const responseValue = textResult || "";
 
@@ -295,5 +302,6 @@ export function calculateCost(
   usage.cost.output = (outputCost / 1000000) * usage.output;
   usage.cost.cacheRead = (cacheReadCost / 1000000) * usage.cacheRead;
   usage.cost.cacheWrite = (cacheWriteCost / 1000000) * usage.cacheWrite;
-  usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
+  usage.cost.total =
+    usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
 }

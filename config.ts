@@ -13,9 +13,9 @@
  *   }
  */
 
-import { getAgentDir } from "@mariozechner/pi-coding-agent";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { getAgentDir } from "@mariozechner/pi-coding-agent";
 
 export function getConfigPath(): string {
   return join(getAgentDir(), "settings", "pi-vertex.json");

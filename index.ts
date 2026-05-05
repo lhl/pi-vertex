@@ -26,11 +26,11 @@
  *   pi --provider vertex --model llama-4-maverick
  */
 
+import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { Model, Api } from "@mariozechner/pi-ai";
-import { ALL_MODELS, getModelById } from "./models/index.js";
 import { hasAdcCredentials, resolveProjectId } from "./auth.js";
-import { loadConfig, getConfigPath } from "./config.js";
+import { getConfigPath, loadConfig } from "./config.js";
+import { ALL_MODELS, getModelById } from "./models/index.js";
 import { streamVertex } from "./streaming/index.js";
 import type { VertexModelConfig } from "./types.js";
 
@@ -69,18 +69,14 @@ export default function (pi: ExtensionAPI) {
 
   if (!projectId) {
     console.log(
-      `[pi-vertex] Skipping: no project ID found.\n` +
-      `  Config file: set "project" in ${getConfigPath()}\n` +
-      `  Env var: export GOOGLE_CLOUD_PROJECT=your-project-id`
+      `[pi-vertex] Skipping: no project ID found.\n  Config file: set "project" in ${getConfigPath()}\n  Env var: export GOOGLE_CLOUD_PROJECT=your-project-id`,
     );
     return;
   }
 
   if (!hasAdcCredentials()) {
     console.log(
-      `[pi-vertex] Skipping: ADC credentials not found.\n` +
-      `  Run: gcloud auth application-default login\n` +
-      `  Or set "credentialsFile" in ${getConfigPath()}`
+      `[pi-vertex] Skipping: ADC credentials not found.\n  Run: gcloud auth application-default login\n  Or set "credentialsFile" in ${getConfigPath()}`,
     );
     return;
   }
@@ -115,13 +111,13 @@ export default function (pi: ExtensionAPI) {
     `   [pi-vertex] Initializing with project: ${projectId}`,
     `   [pi-vertex] Registered ${ALL_MODELS.length} models`,
   ];
-  pi.on("session_start", async (_event, ctx) => {
-    ctx.ui.setWidget("pi-vertex-startup", (_tui, theme) => ({
-      render: () => [...vertexStartupLines.map(l => theme.fg("muted", l)), ""],
+  pi.on("session_start", async (_event: any, ctx: any) => {
+    ctx.ui.setWidget("pi-vertex-startup", (_tui: any, theme: any) => ({
+      render: () => [...vertexStartupLines.map((l: string) => theme.fg("muted", l)), ""],
       invalidate: () => {},
     }));
   });
-  pi.on("input", async (_event, ctx) => {
+  pi.on("input", async (_event: any, ctx: any) => {
     ctx.ui.setWidget("pi-vertex-startup", undefined);
   });
 }

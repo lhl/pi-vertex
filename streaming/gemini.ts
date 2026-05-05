@@ -8,11 +8,20 @@
  * - Usage tracking including thinking tokens
  */
 
-import { GoogleGenAI, FinishReason, ThinkingLevel } from "@google/genai";
-import type { VertexModelConfig, Context, StreamOptions, AssistantMessage } from "../types.js";
+import { FinishReason, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import {
+  type AssistantMessageEventStream,
+  createAssistantMessageEventStream,
+} from "@mariozechner/pi-ai";
 import { getAuthConfig, resolveLocation } from "../auth.js";
-import { sanitizeText, convertToGeminiMessages, convertToolsForGemini, retainThoughtSignature, calculateCost } from "../utils.js";
-import { createAssistantMessageEventStream, type AssistantMessageEventStream } from "@mariozechner/pi-ai";
+import type { AssistantMessage, Context, StreamOptions, VertexModelConfig } from "../types.js";
+import {
+  calculateCost,
+  convertToGeminiMessages,
+  convertToolsForGemini,
+  retainThoughtSignature,
+  sanitizeText,
+} from "../utils.js";
 
 // Module-level counter for generating unique tool call IDs (matches pi-mono pattern)
 let toolCallCounter = 0;
@@ -30,8 +39,6 @@ function mapGeminiStopReason(reason: string): "stop" | "length" | "toolUse" | "e
       return "stop";
     case FinishReason.MAX_TOKENS:
       return "length";
-    case FinishReason.SAFETY:
-    case FinishReason.RECITATION:
     default:
       return "error";
   }
@@ -155,9 +162,19 @@ export function streamGemini(
                 // End previous block
                 if (currentBlock && currentBlockType) {
                   if (currentBlockType === "text") {
-                    stream.push({ type: "text_end", contentIndex: output.content.length - 1, content: currentBlock.text, partial: output });
+                    stream.push({
+                      type: "text_end",
+                      contentIndex: output.content.length - 1,
+                      content: currentBlock.text,
+                      partial: output,
+                    });
                   } else {
-                    stream.push({ type: "thinking_end", contentIndex: output.content.length - 1, content: currentBlock.thinking, partial: output });
+                    stream.push({
+                      type: "thinking_end",
+                      contentIndex: output.content.length - 1,
+                      content: currentBlock.thinking,
+                      partial: output,
+                    });
                   }
                 }
 
@@ -165,11 +182,19 @@ export function streamGemini(
                 if (isThinking) {
                   currentBlock = { type: "thinking", thinking: "", thinkingSignature: undefined };
                   output.content.push(currentBlock);
-                  stream.push({ type: "thinking_start", contentIndex: output.content.length - 1, partial: output });
+                  stream.push({
+                    type: "thinking_start",
+                    contentIndex: output.content.length - 1,
+                    partial: output,
+                  });
                 } else {
                   currentBlock = { type: "text", text: "", textSignature: undefined };
                   output.content.push(currentBlock);
-                  stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
+                  stream.push({
+                    type: "text_start",
+                    contentIndex: output.content.length - 1,
+                    partial: output,
+                  });
                 }
                 currentBlockType = targetType;
               }
@@ -177,12 +202,28 @@ export function streamGemini(
               // Accumulate content
               if (currentBlockType === "thinking") {
                 currentBlock.thinking += part.text;
-                currentBlock.thinkingSignature = retainThoughtSignature(currentBlock.thinkingSignature, part.thoughtSignature);
-                stream.push({ type: "thinking_delta", contentIndex: output.content.length - 1, delta: part.text, partial: output });
+                currentBlock.thinkingSignature = retainThoughtSignature(
+                  currentBlock.thinkingSignature,
+                  part.thoughtSignature,
+                );
+                stream.push({
+                  type: "thinking_delta",
+                  contentIndex: output.content.length - 1,
+                  delta: part.text,
+                  partial: output,
+                });
               } else {
                 currentBlock.text += part.text;
-                currentBlock.textSignature = retainThoughtSignature(currentBlock.textSignature, part.thoughtSignature);
-                stream.push({ type: "text_delta", contentIndex: output.content.length - 1, delta: part.text, partial: output });
+                currentBlock.textSignature = retainThoughtSignature(
+                  currentBlock.textSignature,
+                  part.thoughtSignature,
+                );
+                stream.push({
+                  type: "text_delta",
+                  contentIndex: output.content.length - 1,
+                  delta: part.text,
+                  partial: output,
+                });
               }
             }
 
@@ -190,9 +231,19 @@ export function streamGemini(
               // End current text/thinking block before tool call
               if (currentBlock && currentBlockType) {
                 if (currentBlockType === "text") {
-                  stream.push({ type: "text_end", contentIndex: output.content.length - 1, content: currentBlock.text, partial: output });
+                  stream.push({
+                    type: "text_end",
+                    contentIndex: output.content.length - 1,
+                    content: currentBlock.text,
+                    partial: output,
+                  });
                 } else {
-                  stream.push({ type: "thinking_end", contentIndex: output.content.length - 1, content: currentBlock.thinking, partial: output });
+                  stream.push({
+                    type: "thinking_end",
+                    contentIndex: output.content.length - 1,
+                    content: currentBlock.thinking,
+                    partial: output,
+                  });
                 }
                 currentBlock = null;
                 currentBlockType = null;
@@ -201,7 +252,8 @@ export function streamGemini(
               // Generate unique tool call ID with dedup (matches pi-mono pattern)
               const providedId = part.functionCall.id;
               const needsNewId =
-                !providedId || output.content.some((b: any) => b.type === "toolCall" && b.id === providedId);
+                !providedId ||
+                output.content.some((b: any) => b.type === "toolCall" && b.id === providedId);
               const toolCallId = needsNewId
                 ? `${part.functionCall.name}_${Date.now()}_${++toolCallCounter}`
                 : providedId;
@@ -217,7 +269,12 @@ export function streamGemini(
               output.content.push(toolCall);
               const idx = output.content.length - 1;
               stream.push({ type: "toolcall_start", contentIndex: idx, partial: output });
-              stream.push({ type: "toolcall_delta", contentIndex: idx, delta: JSON.stringify(toolCall.arguments), partial: output });
+              stream.push({
+                type: "toolcall_delta",
+                contentIndex: idx,
+                delta: JSON.stringify(toolCall.arguments),
+                partial: output,
+              });
               stream.push({ type: "toolcall_end", contentIndex: idx, toolCall, partial: output });
             }
           }
@@ -246,16 +303,32 @@ export function streamGemini(
             totalTokens: meta.totalTokenCount || 0,
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
           };
-          calculateCost(model.cost.input, model.cost.output, model.cost.cacheRead, model.cost.cacheWrite, output.usage);
+          calculateCost(
+            model.cost.input,
+            model.cost.output,
+            model.cost.cacheRead,
+            model.cost.cacheWrite,
+            output.usage,
+          );
         }
       }
 
       // End final block
       if (currentBlock && currentBlockType) {
         if (currentBlockType === "text") {
-          stream.push({ type: "text_end", contentIndex: output.content.length - 1, content: currentBlock.text, partial: output });
+          stream.push({
+            type: "text_end",
+            contentIndex: output.content.length - 1,
+            content: currentBlock.text,
+            partial: output,
+          });
         } else {
-          stream.push({ type: "thinking_end", contentIndex: output.content.length - 1, content: currentBlock.thinking, partial: output });
+          stream.push({
+            type: "thinking_end",
+            contentIndex: output.content.length - 1,
+            content: currentBlock.thinking,
+            partial: output,
+          });
         }
       }
 
