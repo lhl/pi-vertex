@@ -17,8 +17,10 @@ export function streamVertex(
       return streamGemini(model, context, options);
     case "maas":
       return streamMaaS(model, context, options);
-    default:
-      throw new Error(`Unknown endpoint type: ${(model as any).endpointType}`);
+    default: {
+      const exhaustive: never = model.endpointType;
+      throw new Error(`Unknown endpoint type: ${String(exhaustive)}`);
+    }
   }
 }
 

@@ -236,32 +236,6 @@ describe("convertToGeminiMessages", () => {
       });
     });
 
-    it("includes id for Claude models", () => {
-      const messages: Message[] = [
-        assistant({
-          content: [
-            { type: "toolCall", id: "tc-1", name: "read", arguments: { path: "/tmp/test" } },
-          ],
-        }),
-      ];
-      const result = convertToGeminiMessages(messages, "claude-sonnet-4-6");
-      expect(result[0].parts[0]).toEqual({
-        functionCall: { name: "read", args: { path: "/tmp/test" }, id: "tc-1" },
-      });
-    });
-
-    it("includes id for GPT-OSS models", () => {
-      const messages: Message[] = [
-        assistant({
-          content: [{ type: "toolCall", id: "tc-1", name: "read", arguments: {} }],
-        }),
-      ];
-      const result = convertToGeminiMessages(messages, "gpt-oss-120b");
-      expect(result[0].parts[0]).toEqual({
-        functionCall: { name: "read", args: {}, id: "tc-1" },
-      });
-    });
-
     it("uses skip_thought_signature_validator for Gemini 3 without signature", () => {
       const messages: Message[] = [
         assistant({
@@ -315,7 +289,7 @@ describe("convertToGeminiMessages", () => {
       const messages: Message[] = [
         toolResult("tc-1", "read", [{ type: "text", text: "not found" }], true),
       ];
-      const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
+      const result = convertToGeminiMessages(messages, "gemini-2.5-pro") as any;
       expect(result[0].parts[0].functionResponse.response).toEqual({ error: "not found" });
     });
 
@@ -330,17 +304,9 @@ describe("convertToGeminiMessages", () => {
       expect(result[0].parts).toHaveLength(2);
     });
 
-    it("includes toolCallId for Claude models", () => {
-      const messages: Message[] = [
-        toolResult("tc-1", "read", [{ type: "text", text: "contents" }]),
-      ];
-      const result = convertToGeminiMessages(messages, "claude-sonnet-4-6");
-      expect(result[0].parts[0].functionResponse.id).toBe("tc-1");
-    });
-
     it("handles empty toolResult content", () => {
       const messages: Message[] = [toolResult("tc-1", "read", [{ type: "text", text: "" }])];
-      const result = convertToGeminiMessages(messages, "gemini-2.5-pro");
+      const result = convertToGeminiMessages(messages, "gemini-2.5-pro") as any;
       expect(result[0].parts[0].functionResponse.response.output).toBe("");
     });
 

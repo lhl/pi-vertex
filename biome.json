@@ -22,6 +22,28 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": ["node_modules", "dist", "coverage"]
-  }
+    "ignore": ["node_modules", "dist", "coverage", ".pi"]
+  },
+  "overrides": [
+    {
+      "include": ["tests/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["streaming/maas.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
 }

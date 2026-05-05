@@ -11,6 +11,7 @@ import type {
   Message,
   TextContent,
   ThinkingContent,
+  Tool,
   ToolCall,
   ToolResultMessage,
 } from "./types.js";
@@ -55,14 +56,6 @@ export function retainThoughtSignature(
   return existing;
 }
 
-/**
- * Whether a model requires explicit tool call IDs in functionCall parts.
- * Claude and GPT-OSS models on Vertex require them; native Gemini models don't.
- */
-function requiresToolCallId(modelId: string): boolean {
-  return modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
-}
-
 function getGeminiMajorVersion(modelId: string): number | undefined {
   const match = modelId.toLowerCase().match(/^gemini(?:-live)?-(\d+)/);
   return match ? Number.parseInt(match[1], 10) : undefined;
@@ -75,15 +68,24 @@ function supportsMultimodalFunctionResponse(modelId: string): boolean {
 }
 
 /**
+ * A single content turn in the Vertex Gemini request format.
+ * The SDK doesn't export this shape directly, so we model it loosely — fields
+ * are constructed inline below and validated server-side.
+ */
+type GeminiContent = {
+  role: "user" | "model";
+  parts: Array<Record<string, unknown>>;
+};
+
+/**
  * Convert messages to Gemini format.
  *
  * Handles the full pi-ai Message union: UserMessage, AssistantMessage (with
  * TextContent, ThinkingContent, ToolCall blocks), and ToolResultMessage.
  */
-export function convertToGeminiMessages(messages: Message[], modelId: string): any[] {
-  const result: any[] = [];
+export function convertToGeminiMessages(messages: Message[], modelId: string): GeminiContent[] {
+  const result: GeminiContent[] = [];
   const isGemini3 = modelId.startsWith("gemini-3");
-  const includeToolCallId = requiresToolCallId(modelId);
   let pendingToolCalls: ToolCall[] = [];
   let existingToolResultIds = new Set<string>();
 
@@ -110,18 +112,17 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
       },
     }));
 
-    const functionResponsePart: any = {
+    const functionResponsePart: Record<string, unknown> = {
       functionResponse: {
         name: toolName,
         response: isError ? { error: responseValue } : { output: responseValue },
         ...(hasImages && supportsMultimodalFunctionResponse(modelId) ? { parts: imageParts } : {}),
-        ...(includeToolCallId ? { id: toolCallId } : {}),
       },
     };
 
     // Merge consecutive tool results into a single user turn (required by Gemini API)
     const lastContent = result[result.length - 1];
-    if (lastContent?.role === "user" && lastContent.parts?.some((p: any) => p.functionResponse)) {
+    if (lastContent?.role === "user" && lastContent.parts?.some((p) => "functionResponse" in p)) {
       lastContent.parts.push(functionResponsePart);
     } else {
       result.push({ role: "user", parts: [functionResponsePart] });
@@ -163,17 +164,19 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
           });
         }
       } else {
-        const parts = msg.content.map((item: any) => {
-          if (item.type === "text") {
-            return { text: sanitizeText(item.text) };
-          }
-          return {
-            inlineData: {
-              mimeType: item.mimeType,
-              data: item.data,
-            },
-          };
-        });
+        const parts: Array<Record<string, unknown>> = msg.content.map(
+          (item: TextContent | ImageContent) => {
+            if (item.type === "text") {
+              return { text: sanitizeText(item.text) };
+            }
+            return {
+              inlineData: {
+                mimeType: item.mimeType,
+                data: item.data,
+              },
+            };
+          },
+        );
         if (parts.length > 0) {
           result.push({ role: "user", parts });
         }
@@ -191,7 +194,7 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
         assistantMsg.provider === "vertex" &&
         assistantMsg.api === "google-generative-ai" &&
         assistantMsg.model === modelId;
-      const parts: any[] = [];
+      const parts: Array<Record<string, unknown>> = [];
       const toolCalls: ToolCall[] = [];
 
       for (const block of assistantMsg.content) {
@@ -231,11 +234,10 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
             toolCallBlock.thoughtSignature,
           );
 
-          const part: any = {
+          const part: Record<string, unknown> = {
             functionCall: {
               name: toolCallBlock.name,
               args: toolCallBlock.arguments ?? {},
-              ...(includeToolCallId ? { id: toolCallBlock.id } : {}),
             },
           };
           if (thoughtSig) {
@@ -279,7 +281,9 @@ export function convertToGeminiMessages(messages: Message[], modelId: string): a
  * Convert tools to Gemini format using parametersJsonSchema (full JSON Schema support).
  * This differs from OpenAI format — Gemini uses functionDeclarations wrapped in an array.
  */
-export function convertToolsForGemini(tools: any[]): any[] | undefined {
+export function convertToolsForGemini(
+  tools: Tool[],
+): Array<{ functionDeclarations: Array<Record<string, unknown>> }> | undefined {
   if (!tools || tools.length === 0) return undefined;
   return [
     {
@@ -295,7 +299,7 @@ export function convertToolsForGemini(tools: any[]): any[] | undefined {
 /**
  * Convert tools to OpenAI format (for Claude and MaaS models)
  */
-export function convertTools(tools: any[]): any[] {
+export function convertTools(tools: Tool[]): Array<Record<string, unknown>> {
   return tools.map((tool) => ({
     type: "function",
     function: {

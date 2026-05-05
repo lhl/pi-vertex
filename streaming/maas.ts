@@ -3,6 +3,13 @@
  *
  * - Anthropic models: native AnthropicVertex SDK streaming
  * - Other MaaS models: Vertex OpenAI-compatible Chat Completions endpoint
+ *
+ * NOTE: this file uses `any` deliberately for the Anthropic message-shaping
+ * pipeline (the two-pass normalize + replay). The intermediate arrays mix
+ * pi-ai Message shapes with Anthropic-specific tool_use / tool_result blocks
+ * and would need a dedicated internal type to be expressed cleanly. For now,
+ * `noExplicitAny` is disabled for this file via biome.json overrides; that
+ * cleanup is tracked as a follow-up.
  */
 
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
@@ -396,8 +403,10 @@ async function streamAnthropic(
     output.stopReason = "toolUse";
   }
 
+  // NOTE: lifecycle-neutral — caller (streamMaaS) owns stream.end().
+  // We push 'done' here so the event sequence is complete, but the outer
+  // function calls end() exactly once, matching the OpenAI-compat path.
   stream.push({ type: "done", reason: output.stopReason, message: output });
-  stream.end();
 }
 
 export function streamMaaS(
@@ -414,6 +423,9 @@ export function streamMaaS(
 
     try {
       if (model.publisher === "anthropic") {
+        // streamAnthropic is lifecycle-neutral (pushes start/deltas/done but
+        // does not call stream.end()), so we own end() here. This matches the
+        // OpenAI-compat path below, which also ends the stream after relaying.
         await streamAnthropic(model, context, options, stream);
         stream.end();
         return;

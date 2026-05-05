@@ -126,8 +126,10 @@ export function streamGemini(
       // Convert messages with model ID for proper thinking/tool handling
       const contents = convertToGeminiMessages(context.messages, model.apiId);
 
-      // Build config — only set temperature when explicitly provided
-      const config: any = {
+      // Build config — only set temperature when explicitly provided.
+      // The Vertex Gemini config shape is sprawling and not exhaustively typed by
+      // @google/genai, so we use Record<string, unknown> and let the SDK validate.
+      const config: Record<string, unknown> = {
         maxOutputTokens: options?.maxTokens || model.maxTokens,
         ...(options?.temperature !== undefined && { temperature: options.temperature }),
       };
@@ -187,8 +189,16 @@ export function streamGemini(
         config,
       });
 
-      // Track current content block for thinking/text transitions
-      let currentBlock: any = null;
+      // Track current content block for thinking/text transitions.
+      // We hold a reference to the most recently appended block in output.content
+      // so we can mutate text/thinking and signatures in place.
+      type StreamingTextBlock = { type: "text"; text: string; textSignature?: string };
+      type StreamingThinkingBlock = {
+        type: "thinking";
+        thinking: string;
+        thinkingSignature?: string;
+      };
+      let currentBlock: StreamingTextBlock | StreamingThinkingBlock | null = null;
       let currentBlockType: "text" | "thinking" | null = null;
 
       for await (const chunk of response) {
@@ -204,23 +214,22 @@ export function streamGemini(
 
               // Check if we need to transition to a new block
               if (currentBlockType !== targetType) {
-                // End previous block
-                if (currentBlock && currentBlockType) {
-                  if (currentBlockType === "text") {
-                    stream.push({
-                      type: "text_end",
-                      contentIndex: output.content.length - 1,
-                      content: currentBlock.text,
-                      partial: output,
-                    });
-                  } else {
-                    stream.push({
-                      type: "thinking_end",
-                      contentIndex: output.content.length - 1,
-                      content: currentBlock.thinking,
-                      partial: output,
-                    });
-                  }
+                // End previous block (narrow on currentBlock.type so each branch
+                // sees the correctly-typed block)
+                if (currentBlock?.type === "text") {
+                  stream.push({
+                    type: "text_end",
+                    contentIndex: output.content.length - 1,
+                    content: currentBlock.text,
+                    partial: output,
+                  });
+                } else if (currentBlock?.type === "thinking") {
+                  stream.push({
+                    type: "thinking_end",
+                    contentIndex: output.content.length - 1,
+                    content: currentBlock.thinking,
+                    partial: output,
+                  });
                 }
 
                 // Start new block
@@ -244,8 +253,9 @@ export function streamGemini(
                 currentBlockType = targetType;
               }
 
-              // Accumulate content
-              if (currentBlockType === "thinking") {
+              // Accumulate content (narrow on the discriminator so each branch
+              // sees the correctly-typed block)
+              if (currentBlock?.type === "thinking") {
                 currentBlock.thinking += part.text;
                 currentBlock.thinkingSignature = retainThoughtSignature(
                   currentBlock.thinkingSignature,
@@ -257,7 +267,7 @@ export function streamGemini(
                   delta: part.text,
                   partial: output,
                 });
-              } else {
+              } else if (currentBlock?.type === "text") {
                 currentBlock.text += part.text;
                 currentBlock.textSignature = retainThoughtSignature(
                   currentBlock.textSignature,
@@ -274,22 +284,22 @@ export function streamGemini(
 
             if (part.functionCall) {
               // End current text/thinking block before tool call
-              if (currentBlock && currentBlockType) {
-                if (currentBlockType === "text") {
-                  stream.push({
-                    type: "text_end",
-                    contentIndex: output.content.length - 1,
-                    content: currentBlock.text,
-                    partial: output,
-                  });
-                } else {
-                  stream.push({
-                    type: "thinking_end",
-                    contentIndex: output.content.length - 1,
-                    content: currentBlock.thinking,
-                    partial: output,
-                  });
-                }
+              if (currentBlock?.type === "text") {
+                stream.push({
+                  type: "text_end",
+                  contentIndex: output.content.length - 1,
+                  content: currentBlock.text,
+                  partial: output,
+                });
+              } else if (currentBlock?.type === "thinking") {
+                stream.push({
+                  type: "thinking_end",
+                  contentIndex: output.content.length - 1,
+                  content: currentBlock.thinking,
+                  partial: output,
+                });
+              }
+              if (currentBlock) {
                 currentBlock = null;
                 currentBlockType = null;
               }
@@ -298,7 +308,9 @@ export function streamGemini(
               const providedId = part.functionCall.id;
               const needsNewId =
                 !providedId ||
-                output.content.some((b: any) => b.type === "toolCall" && b.id === providedId);
+                output.content.some(
+                  (b) => b.type === "toolCall" && (b as { id?: string }).id === providedId,
+                );
               const toolCallId = needsNewId
                 ? `${part.functionCall.name}_${Date.now()}_${++toolCallCounter}`
                 : providedId;
@@ -307,7 +319,7 @@ export function streamGemini(
                 type: "toolCall" as const,
                 id: toolCallId,
                 name: part.functionCall.name || "",
-                arguments: (part.functionCall.args as Record<string, any>) ?? {},
+                arguments: (part.functionCall.args as Record<string, unknown>) ?? {},
                 ...(part.thoughtSignature && { thoughtSignature: part.thoughtSignature }),
               };
 
@@ -332,14 +344,20 @@ export function streamGemini(
             output.errorMessage = "Content blocked by safety filters";
           }
           // Override to toolUse if any tool calls are present (matches pi-mono)
-          if (output.content.some((b: any) => b.type === "toolCall")) {
+          if (output.content.some((b) => b.type === "toolCall")) {
             output.stopReason = "toolUse";
           }
         }
 
         // Update usage — include thoughtsTokenCount in output (matches pi-mono)
         if (chunk.usageMetadata) {
-          const meta = chunk.usageMetadata as any;
+          const meta = chunk.usageMetadata as {
+            cachedContentTokenCount?: number;
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+            thoughtsTokenCount?: number;
+            totalTokenCount?: number;
+          };
           const cachedTokens = meta.cachedContentTokenCount || 0;
           output.usage = {
             input: Math.max(0, (meta.promptTokenCount || 0) - cachedTokens),
@@ -360,22 +378,20 @@ export function streamGemini(
       }
 
       // End final block
-      if (currentBlock && currentBlockType) {
-        if (currentBlockType === "text") {
-          stream.push({
-            type: "text_end",
-            contentIndex: output.content.length - 1,
-            content: currentBlock.text,
-            partial: output,
-          });
-        } else {
-          stream.push({
-            type: "thinking_end",
-            contentIndex: output.content.length - 1,
-            content: currentBlock.thinking,
-            partial: output,
-          });
-        }
+      if (currentBlock?.type === "text") {
+        stream.push({
+          type: "text_end",
+          contentIndex: output.content.length - 1,
+          content: currentBlock.text,
+          partial: output,
+        });
+      } else if (currentBlock?.type === "thinking") {
+        stream.push({
+          type: "thinking_end",
+          contentIndex: output.content.length - 1,
+          content: currentBlock.thinking,
+          partial: output,
+        });
       }
 
       if (options?.signal?.aborted) {

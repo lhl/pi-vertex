@@ -29,7 +29,7 @@ We created this fork to fix some bugs, add tests, and to move out of a big combi
 - **Filtered with**: `git filter-repo --path pi-vertex/ --path-rename pi-vertex/:` (preserves full upstream git history)
 - **This repo**: [`lhl/pi-vertex`](https://github.com/lhl/pi-vertex)
 
-![pi-vertex model selector](screenshot.png)
+![pi-vertex model selector](https://raw.githubusercontent.com/lhl/pi-vertex/main/screenshot.png)
 
 ```bash
 pi install @lhl/pi-vertex

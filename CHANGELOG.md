@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.8] - 2026-05-06
+### Fixed
+- **Double `stream.end()` on the Anthropic path**: `streamAnthropic()` was calling `stream.end()` internally and then `streamMaaS()` was calling it again. Made `streamAnthropic()` lifecycle-neutral (pushes start/deltas/done but does not end the stream) so end() is called exactly once, matching the OpenAI-compat path. Idempotent in pi-ai today, but now correct by construction.
+### Added
+- **Tests for `streaming/maas.ts`** (`tests/streaming-maas.test.ts`): Anthropic happy path, tool-use stop reason, sync error path, OpenAI-compat model rewriting, and a regression test asserting `stream.end()` is called exactly once. Test count: 86 → 88.
+### Changed
+- **Removed dead branches in `convertToGeminiMessages`**: the `claude-` / `gpt-oss-` modelId checks (and the `requiresToolCallId` helper) only ran inside the Gemini streaming path, where modelId is always a Gemini apiId — they were unreachable in production. Three corresponding tests removed.
+- **Lint cleanup**: tightened `any` usage in `index.ts`, `streaming/index.ts`, `streaming/gemini.ts`, and `utils.ts` (proper Tool / GeminiContent / discriminated-union types, exhaustive-check `never`). `noExplicitAny` is now disabled for `tests/**` (mock objects) and `streaming/maas.ts` (Anthropic message-shaping pipeline mixes intermediate shapes; cleanup tracked as a follow-up). `npm run check` is now a real signal: 53 warnings → 0.
+- **Dropped `screenshot.png` from the npm tarball**: README now references the GitHub raw URL. Tarball size: ~730 kB → 24 kB (~30× smaller).
+- **Added `.pi/` to biome ignore list** so internal task state isn't linted.
+
 ## [1.1.7] - 2026-05-06
 ### Added
 - Claude Opus 4.7 model definition and README references using current Vertex metadata.

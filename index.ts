@@ -26,12 +26,18 @@
  *   pi --provider vertex --model llama-4-maverick
  */
 
-import type { Api, Model } from "@mariozechner/pi-ai";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { Api, Context, Model } from "@mariozechner/pi-ai";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  InputEvent,
+  SessionStartEvent,
+} from "@mariozechner/pi-coding-agent";
 import { hasAdcCredentials, resolveProjectId } from "./auth.js";
 import { getConfigPath, loadConfig } from "./config.js";
 import { ALL_MODELS, getModelById } from "./models/index.js";
 import { streamVertex } from "./streaming/index.js";
+import type { StreamOptions } from "./types.js";
 import type { VertexModelConfig } from "./types.js";
 
 /**
@@ -96,7 +102,7 @@ export default function (pi: ExtensionAPI) {
     models: ALL_MODELS.map(toPiModel),
 
     // Custom streaming implementation
-    streamSimple: (model: Model<Api>, context: any, options?: any) => {
+    streamSimple: (model: Model<Api>, context: Context, options?: StreamOptions) => {
       const vertexModel = getModelById(model.id);
       if (!vertexModel) {
         throw new Error(`Unknown Vertex model: ${model.id}`);
@@ -111,13 +117,17 @@ export default function (pi: ExtensionAPI) {
     `   [pi-vertex] Initializing with project: ${projectId}`,
     `   [pi-vertex] Registered ${ALL_MODELS.length} models`,
   ];
-  pi.on("session_start", async (_event: any, ctx: any) => {
-    ctx.ui.setWidget("pi-vertex-startup", (_tui: any, theme: any) => ({
+  pi.on("session_start", async (_event: SessionStartEvent, ctx: ExtensionContext) => {
+    // The widget render signature is intentionally untyped here — pi exposes the
+    // tui/theme objects via duck typing in the widget contract. Using `unknown`
+    // and narrowing inside would just add ceremony; the values are passed
+    // through to the theme helper.
+    ctx.ui.setWidget("pi-vertex-startup", (_tui, theme) => ({
       render: () => [...vertexStartupLines.map((l: string) => theme.fg("muted", l)), ""],
       invalidate: () => {},
     }));
   });
-  pi.on("input", async (_event: any, ctx: any) => {
+  pi.on("input", async (_event: InputEvent, ctx: ExtensionContext) => {
     ctx.ui.setWidget("pi-vertex-startup", undefined);
   });
 }
