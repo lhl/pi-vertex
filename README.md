@@ -9,7 +9,7 @@ A Google Vertex AI provider for the [Pi Coding Agent](https://pi.dev) — giving
 
 This is a **fork** of [`@ssweens/pi-vertex`](https://github.com/ssweens/pi-packages/tree/main/pi-vertex). The original is excellent on features (43 models, unified streaming, tool calling, thinking/reasoning support) but was shipped as "works for me" software — no tests, no CI, placeholder npm scripts (`echo 'nothing to check'`), and no public issue tracker.
 
-We created this fork to add the engineering rigor needed for daily use:
+We created this fork to fix some bugs, add tests, and to move out of a big combined mono-repo:
 
 ### What's been added
 
