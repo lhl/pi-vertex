@@ -15,11 +15,11 @@ We created this fork to fix some bugs, add tests, and to move out of a big combi
 
 | Improvement | Details |
 |-------------|---------|
-| **86 unit tests** | `auth.ts`, `config.ts`, `utils.ts`, `models/`, `streaming/index.ts`, `streaming/gemini.ts`, `convertToGeminiMessages` — covering message conversion, tool call normalization, cost calculation, auth resolution, model validation |
+| **88 unit tests** | `auth.ts`, `config.ts`, `utils.ts`, `models/`, `streaming/index.ts`, `streaming/gemini.ts`, `streaming/maas.ts`, `convertToGeminiMessages` — covering message conversion, tool call normalization, cost calculation, auth resolution, model validation |
 | **GitHub Actions CI** | Type-check (`tsc --noEmit`), lint (`biome check`), test + coverage on every push/PR |
 | **Biome linting/formatting** | Replaces none. Catches `noExplicitAny`, enforces import sorting, consistent formatting |
 | **Real npm scripts** | `build`, `check`, `test`, `test:coverage`, `clean` — no more `echo 'nothing to check'` |
-| **Bug fixes** | `streamAnthropic()` now calls `stream.end()` (was missing, causing potential hangs); removed hardcoded `maxTokens / 2` halving (was wasting half of every model's output capacity) |
+| **Bug fixes** | Fixed Anthropic stream lifecycle so streams end exactly once; removed hardcoded `maxTokens / 2` halving; hardened Gemini message conversion, cache accounting, image tool results, missing tool results, and blocked-finish handling |
 | **Standalone repo** | Filtered from the `ssweens/pi-packages` monorepo with `git filter-repo` for focused development |
 
 ### Fork provenance
@@ -32,7 +32,7 @@ We created this fork to fix some bugs, add tests, and to move out of a big combi
 ![pi-vertex model selector](https://raw.githubusercontent.com/lhl/pi-vertex/main/screenshot.png)
 
 ```bash
-pi install @lhl/pi-vertex
+pi install npm:@lhl/pi-vertex
 export GOOGLE_CLOUD_PROJECT=your-project-id
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
 ```
@@ -41,7 +41,7 @@ Set your GCP project and credentials. Vertex AI models (Gemini, Claude, Llama, D
 
 ## Features
 
-- **36 models** across 4 categories:
+- **39 models** across 4 categories:
   - **Gemini** (8): 3.1 Pro, 3.1 Flash-Lite, 3 Flash, 2.5 Pro, 2.5 Flash, 2.0 Flash, and more
   - **Claude** (10): Opus 4.7, Opus 4.6, Sonnet 4.6, 4.5, 4.1, 4, Haiku 4.5, 3.5 Sonnet v2
   - **Llama** (3): 4 Maverick, 4 Scout, 3.3 70B
@@ -58,10 +58,10 @@ Set your GCP project and credentials. Vertex AI models (Gemini, Claude, Llama, D
 
 ```bash
 # Via pi (recommended)
-pi install @lhl/pi-vertex
+pi install npm:@lhl/pi-vertex
 
 # Or via npm
-npm install @lhl/pi-vertex
+npm install -g @lhl/pi-vertex
 
 # Or from source
 git clone https://github.com/lhl/pi-vertex.git

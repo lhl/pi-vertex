@@ -47,10 +47,14 @@
     "extensions": ["./index.ts"]
   },
   "keywords": ["pi-package", "pi-extension", "vertex-ai", "gemini", "claude", "maas"],
-  "author": "lhl (forked from ssweens)",
+  "author": "Leonard Lin <lhl@randomfoo.net>",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lhl/pi-vertex.git"
+  },
+  "homepage": "https://github.com/lhl/pi-vertex#readme",
+  "bugs": {
+    "url": "https://github.com/lhl/pi-vertex/issues"
   }
 }
