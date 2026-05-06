@@ -7,9 +7,9 @@ A Google Vertex AI provider for the [Pi Coding Agent](https://pi.dev) — giving
 
 ## About this fork
 
-This is a **fork** of [`@ssweens/pi-vertex`](https://github.com/ssweens/pi-packages/tree/main/pi-vertex). The original is excellent on features (43 models, unified streaming, tool calling, thinking/reasoning support) but was shipped as "works for me" software — no tests, no CI, placeholder npm scripts (`echo 'nothing to check'`), and no public issue tracker.
+This is a **fork** of [`@ssweens/pi-vertex`](https://github.com/ssweens/pi-packages/tree/main/pi-vertex). The original is excellent on features (43 models, unified streaming, tool calling, thinking/reasoning support) but is shipped as part of a mono-repo without tests, CI, placeholder npm scripts (`echo 'nothing to check'`).
 
-We created this fork to fix some bugs, add tests, and to move out of a big combined mono-repo:
+This fork is created to add new models, fix some bugs, add tests, and to move out of a big combined mono-repo:
 
 ### What's been added
 
@@ -17,8 +17,8 @@ We created this fork to fix some bugs, add tests, and to move out of a big combi
 |-------------|---------|
 | **88 unit tests** | `auth.ts`, `config.ts`, `utils.ts`, `models/`, `streaming/index.ts`, `streaming/gemini.ts`, `streaming/maas.ts`, `convertToGeminiMessages` — covering message conversion, tool call normalization, cost calculation, auth resolution, model validation |
 | **GitHub Actions CI** | Type-check (`tsc --noEmit`), lint (`biome check`), test + coverage on every push/PR |
-| **Biome linting/formatting** | Replaces none. Catches `noExplicitAny`, enforces import sorting, consistent formatting |
-| **Real npm scripts** | `build`, `check`, `test`, `test:coverage`, `clean` — no more `echo 'nothing to check'` |
+| **Biome linting/formatting** | Catches `noExplicitAny`, enforces import sorting, consistent formatting |
+| **Real npm scripts** | `build`, `check`, `test`, `test:coverage`, `clean` |
 | **Bug fixes** | Fixed Anthropic stream lifecycle so streams end exactly once; removed hardcoded `maxTokens / 2` halving; hardened Gemini message conversion, cache accounting, image tool results, missing tool results, and blocked-finish handling |
 | **Standalone repo** | Filtered from the `ssweens/pi-packages` monorepo with `git filter-repo` for focused development |
 
